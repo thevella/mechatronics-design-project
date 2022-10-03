@@ -7,10 +7,7 @@
 #define DESTINATION_ADDL 3
 #include <LoRa_E220.h>
 
-
-extern struct joystick com;
-
-
+extern struct joystick joystick_com;
 
 void check_message();
 

@@ -28,10 +28,10 @@ void setup() {
 }
 
 void loop() {
-    if (com.button) {
-        manual_rotate(com.x);
+    if (joystick_com.button) {
+        manual_rotate(joystick_com.x);
     } else {
-        manual_move(com.x, com.y);
+        manual_move(joystick_com.x, joystick_com.y);
     }
 
     check_message();
@@ -42,12 +42,6 @@ void loop() {
     //Serial.println(analogRead(gpio));
     //sprintf(output, "X: %04i, Y: %04i, C: %i", analogRead(x_pin), analogRead(y_pin), do_rotate);
     //Serial.println(output);
-}
-
-
-
-void set_do_rotate() {
-    do_rotate = !do_rotate;
 }
 
 

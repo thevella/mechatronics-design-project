@@ -35,7 +35,7 @@ const uint16_t joystick_deadzone = 100;
 const uint16_t max_analog = 4095;
 
 void setup_sensors() {
-        for (int i = 0; i < num_dist_sensors; ++i) {
+    for (int i = 0; i < num_dist_sensors; ++i) {
         pinMode(distance_sensors[i][DIST_VAL], INPUT);
         pinMode(distance_sensors[i][DIST_GPIO], OUTPUT);
         digitalWrite(distance_sensors[i][DIST_GPIO], HIGH);

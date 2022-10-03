@@ -8,7 +8,7 @@ LoRa_E220(HardwareSerial* serial, byte auxPin, byte m0Pin, byte m1Pin, UART_BPS_
 // LoRa_E220(serial_interface, digital_pin, digital_pin, digital_pin)
 LoRa_E220 e220ttl(&Serial3, 30, 29, 28);
 
-struct joystick com = {(uint16_t)(max_analog/2), (uint16_t)(max_analog/2), false};
+struct joystick joystick_com = {(uint16_t)(max_analog/2), (uint16_t)(max_analog/2), false};
 bool old_button = false;
 
 char output[50];
@@ -34,9 +34,9 @@ void check_message() {
             //Serial.println(*(int*) rc.data);
             int data = *(int*) rc.data;
             
-            com.y = data & 0xFFF;
-            com.x = ((data >> 12) & 0xFFF);
-            com.button = ((data >> 24) & 0x1);
+            joystick_com.y = data & 0xFFF;
+            joystick_com.x = ((data >> 12) & 0xFFF);
+            joystick_com.button = ((data >> 24) & 0x1);
             //sprintf(output, "X: %04i, Y: %04i, C: %i", com.x, com.y, com.button);
             //Serial.println(output);
 #ifdef ENABLE_RSSI
@@ -45,8 +45,8 @@ void check_message() {
         }
     }
 
-    if (com.button != old_button) {
-        old_button = com.button;
+    if (joystick_com.button != old_button) {
+        old_button = joystick_com.button;
 
         noInterrupts();
         struct encoders enc_temp = {enc.FR, enc.FL, enc.RL,enc.RR};

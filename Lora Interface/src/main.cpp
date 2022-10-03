@@ -45,7 +45,7 @@ struct encoders {
 struct encoders enc = {0,0,0,0};
 
 struct joystick old_com = {10,15, true};
-struct joystick com = {10, 15, true};
+struct joystick joystick_com = {10, 15, true};
 
 
 void setup() {
@@ -170,13 +170,13 @@ void loop() {
 		y = (4095/2);
 	}
 
-	com = {x, y, rotate};
+	joystick_com = {x, y, rotate};
 
-	if (abs(com.y - old_com.y) > 15 || abs(com.x - old_com.x) > 15 || com.button != old_com.button) {
+	if (abs(joystick_com.y - old_com.y) > 15 || abs(joystick_com.x - old_com.x) > 15 || joystick_com.button != old_com.button) {
 		//sprintf(output, "X: %04i, Y: %04i, C: %i\n", com.x, com.y, com.button);
 		//Serial.println(output);
-		ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, &com, sizeof(joystick));
-		old_com = com;
+		ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, &joystick_com, sizeof(joystick));
+		old_com = joystick_com;
 	}
 	//Serial.println((int)sizeof(joystick));
 
