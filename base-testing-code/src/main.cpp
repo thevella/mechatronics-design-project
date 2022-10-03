@@ -22,28 +22,37 @@ extern TwoWire Wire1;
 
 #if MOTOR_FR_FORWARD == FORWARD
 #define MOTOR_FR_BACKWARD BACKWARD
+const uint8_t MOTOR_FR_ENC_PINS[] = {36, 38};
 #else
 #define MOTOR_FR_BACKWARD FORWARD
+const uint8_t MOTOR_FR_ENC_PINS[] = {38, 36};
 #endif
 
 #if MOTOR_FL_FORWARD == FORWARD
 #define MOTOR_FL_BACKWARD BACKWARD
+const uint8_t MOTOR_FL_ENC_PINS[] = {44, 46};
 #else
 #define MOTOR_FL_BACKWARD FORWARD
+const uint8_t MOTOR_FL_ENC_PINS[] = {46, 44};
 #endif
 
 #if MOTOR_RL_FORWARD == FORWARD
 #define MOTOR_RL_BACKWARD BACKWARD
+const uint8_t MOTOR_RL_ENC_PINS[] = {32, 34};
 #else
 #define MOTOR_RL_BACKWARD FORWARD
+const uint8_t MOTOR_RL_ENC_PINS[] = {34, 32};
 #endif
 
 #if MOTOR_RR_FORWARD == FORWARD
 #define MOTOR_RR_BACKWARD BACKWARD
+const uint8_t MOTOR_RR_ENC_PINS[] = {40, 42};
 #else
 #define MOTOR_RR_BACKWARD FORWARD
+const uint8_t MOTOR_RR_ENC_PINS[] = {42, 40};
 #endif
 
+const uint8_t MOTOR_ENC_PINS[][2] = {*MOTOR_FR_ENC_PINS, *MOTOR_FL_ENC_PINS, *MOTOR_RL_ENC_PINS, *MOTOR_RR_ENC_PINS};
 
 #include <LoRa_E220.h>
 
@@ -65,8 +74,6 @@ uint8_t x_pin = A11;
 uint8_t y_pin = A10;
 uint8_t button_pin = 50;
 
-uint8_t power_pins[] = {41, 39};
-uint8_t num_power_pins = 2;
 
 // Distance Sensor
 uint8_t gpio = A9;
@@ -91,9 +98,16 @@ struct command {
 	uint16_t x : 12;
 	boolean button : 1; 
 };
+struct encoders {
+	int32_t FR;
+	int32_t FL;
+	int32_t RL;
+	int32_t RR;
+};
 
+volatile struct encoders enc = {0, 0, 0, 0};
 struct command com = {max_analog/2, max_analog/2, false};
-
+bool old_button = false;
 
 
 void move(uint16_t x, uint16_t y) {
@@ -174,6 +188,73 @@ void set_do_rotate() {
     do_rotate = !do_rotate;
 }
 
+void MOTOR_FR_ENC_0() {
+    //check current state of encoder B's output and return direction
+    if ((digitalPinToPort(MOTOR_FR_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_FR_ENC_PINS[1])) == LOW) {
+        enc.FR += 1;
+    } else {
+        enc.FR -= 1;
+    }
+}
+
+void MOTOR_FR_ENC_1() {//check current state of encoder B's output and return direction
+    if ((digitalPinToPort(MOTOR_FR_ENC_PINS[0])->PIO_PDSR & digitalPinToBitMask(MOTOR_FR_ENC_PINS[0])) == LOW) {
+        enc.FR += 1;
+    } else {
+        enc.FR -= 1;
+    }
+}
+
+void MOTOR_FL_ENC_0() {
+    //check current state of encoder B's output and return direction
+    if ((digitalPinToPort(MOTOR_FL_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_FL_ENC_PINS[1])) == LOW) {
+        enc.FL += 1;
+    } else {
+        enc.FL -= 1;
+    }
+}
+
+void MOTOR_FL_ENC_1() {//check current state of encoder B's output and return direction
+    if ((digitalPinToPort(MOTOR_FL_ENC_PINS[0])->PIO_PDSR & digitalPinToBitMask(MOTOR_FL_ENC_PINS[0])) == LOW) {
+        enc.FL += 1;
+    } else {
+        enc.FL -= 1;
+    }
+}
+
+void MOTOR_RL_ENC_0() {
+    //check current state of encoder B's output and return direction
+    if ((digitalPinToPort(MOTOR_RL_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_RL_ENC_PINS[1])) == LOW) {
+        enc.RL += 1;
+    } else {
+        enc.RL -= 1;
+    }
+}
+
+void MOTOR_RL_ENC_1() {//check current state of encoder B's output and return direction
+    if ((digitalPinToPort(MOTOR_RL_ENC_PINS[0])->PIO_PDSR & digitalPinToBitMask(MOTOR_RL_ENC_PINS[0])) == LOW) {
+        enc.RL += 1;
+    } else {
+        enc.RL -= 1;
+    }
+}
+
+void MOTOR_RR_ENC_0() {
+    //check current state of encoder B's output and return direction
+    if ((digitalPinToPort(MOTOR_RR_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_RR_ENC_PINS[1])) == LOW) {
+        enc.RR += 1;
+    } else {
+        enc.RR -= 1;
+    }
+}
+
+void MOTOR_RR_ENC_1() {//check current state of encoder B's output and return direction
+    if ((digitalPinToPort(MOTOR_RR_ENC_PINS[0])->PIO_PDSR & digitalPinToBitMask(MOTOR_RR_ENC_PINS[0])) == LOW) {
+        enc.RR += 1;
+    } else {
+        enc.RR -= 1;
+    }
+}
 
 
 void check_message() {
@@ -197,14 +278,30 @@ void check_message() {
             int data = *(int*) rc.data;
             
             com.y = data & 0xFFF;
-            com.x = (data & 0xFFF000) >> 12;
-            com.button = (data & 0x1000000) >> 24;
-            sprintf(output, "X: %04i, Y: %04i, C: %i", com.x, com.y, com.button);
-            Serial.println(output);
+            com.x = ((data >> 12) & 0xFFF);
+            com.button = ((data >> 24) & 0x1);
+            //sprintf(output, "X: %04i, Y: %04i, C: %i", com.x, com.y, com.button);
+            //Serial.println(output);
 #ifdef ENABLE_RSSI
             Serial.print("RSSI: "); Serial.println(rc.rssi, DEC);
 #endif
         }
+    }
+
+    if (com.button != old_button) {
+        old_button = com.button;
+
+        noInterrupts();
+        struct encoders enc_temp = {enc.FR, enc.FL, enc.RL,enc.RR};
+        enc.FR = 0;
+        enc.FL = 0;
+        enc.RL = 0;
+        enc.RR = 0;
+        interrupts();
+
+        ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, &enc_temp, sizeof(encoders));
+        sprintf(output, "FL: %05li, FR: %05li\nRL: %05li, RR: %05li\n", enc_temp.FL, enc_temp.FR, enc_temp.RL, enc_temp.RR);
+        Serial.println(output);
     }
 
     /*
@@ -240,22 +337,21 @@ void setup() {
     Serial.println("Motor Shield found.");
 
 
-    // pinMode(power_pins[0], OUTPUT);
-    // digitalWrite(power_pins[0], HIGH);
-    // pinMode(power_pins[1], OUTPUT);
-    // digitalWrite(power_pins[1], HIGH);
-
-
-    // pinMode(x_pin, INPUT);
-    // pinMode(y_pin, INPUT);
-
-    // pinMode(button_pin, INPUT);
-    // attachInterrupt(digitalPinToInterrupt(button_pin), set_do_rotate, RISING);
-    // interrupts();
-
     //pinMode(gpio, OUTPUT);
     //pinMode(vout, OUTPUT);
     // Startup all pins and UART
+
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; i < 2; ++i) {
+            pinMode(MOTOR_ENC_PINS[i][j], INPUT);
+        }
+    }
+
+    attachInterrupt(digitalPinToInterrupt(MOTOR_FR_ENC_PINS[0]), MOTOR_FR_ENC_0, RISING);
+    attachInterrupt(digitalPinToInterrupt(MOTOR_FL_ENC_PINS[0]), MOTOR_FL_ENC_0, RISING);
+    attachInterrupt(digitalPinToInterrupt(MOTOR_RL_ENC_PINS[0]), MOTOR_RL_ENC_0, RISING);
+    attachInterrupt(digitalPinToInterrupt(MOTOR_RR_ENC_PINS[0]), MOTOR_RR_ENC_0, RISING);
+
 
 	e220ttl.begin();
 
@@ -278,7 +374,7 @@ void setup() {
 	configuration.SPED.airDataRate = AIR_DATA_RATE_101_192; // Air baud rate
 	configuration.SPED.uartParity = MODE_00_8N1; // Parity bit
 
-	configuration.OPTION.subPacketSetting = SPS_032_11; // Packet size
+	configuration.OPTION.subPacketSetting = SPS_064_10; // Packet size
 	configuration.OPTION.RSSIAmbientNoise = RSSI_AMBIENT_NOISE_DISABLED; // Need to send special command
 	configuration.OPTION.transmissionPower = POWER_30; // Device power
 
