@@ -161,7 +161,16 @@ void loop() {
 	}
 	// sprintf(output, "RAW -- X: %04i, Y: %04i, C: %i", analogRead(x_pin), analogRead(y_pin), rotate);
 	// Serial.println(output);
-	com = {(uint16_t)round((analogRead(x_pin)/(double)1023.0) * 4095), (uint16_t)round((analogRead(y_pin)/(double)1023.0) * 4095), rotate};
+	uint16_t x = (uint16_t)round((analogRead(x_pin)/(double)1023.0) * 4095);
+	uint16_t y = (uint16_t)round((analogRead(y_pin)/(double)1023.0) * 4095);
+
+	if (abs((4095/2.0) - x) < abs((4095/2.0) - y)) {
+		x = (4095/2);
+	} else {
+		y = (4095/2);
+	}
+
+	com = {x, y, rotate};
 
 	if (abs(com.y - old_com.y) > 15 || abs(com.x - old_com.x) > 15 || com.button != old_com.button) {
 		//sprintf(output, "X: %04i, Y: %04i, C: %i\n", com.x, com.y, com.button);
