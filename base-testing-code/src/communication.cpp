@@ -1,63 +1,80 @@
-#include <Arduino.h>
+#include "communication.h"
 
-#define E220_30
-#define FREQUENCY_915
-#define LoRa_E220_DEBUG
-#include <LoRa_E220.h>
-#include <SoftwareSerial.h>
-#include <BitBool.h>
+/*
+LoRa_E220(HardwareSerial* serial, UART_BPS_RATE bpsRate = UART_BPS_RATE_9600);
+LoRa_E220(HardwareSerial* serial, byte auxPin, UART_BPS_RATE bpsRate = UART_BPS_RATE_9600);
+LoRa_E220(HardwareSerial* serial, byte auxPin, byte m0Pin, byte m1Pin, UART_BPS_RATE bpsRate = UART_BPS_RATE_9600);
+*/
+// LoRa_E220(serial_interface, digital_pin, digital_pin, digital_pin)
+LoRa_E220 e220ttl(&Serial3, 30, 29, 28);
 
-#define DESTINATION_ADDL 2
+struct joystick com = {(uint16_t)(max_analog/2), (uint16_t)(max_analog/2), false};
+bool old_button = false;
 
-// ---------- Arduino pins --------------
-// LoRa_E220(byte txE220pin, byte rxE220pin, byte auxPin, byte m0Pin, byte m1Pin, UART_BPS_RATE bpsRate = UART_BPS_RATE_9600);
-// GRND, VCC, AUX, TX, RX, M1, M0
-SoftwareSerial myserial(2,3);
-LoRa_E220 e220ttl(&myserial, 5, 7, 6); // Arduino RX <-- e220 TX, Arduino TX --> e220 RX AUX M0 M1
+char output[50];
 
 
-uint8_t x_pin = A0;
-uint8_t y_pin = A1;
-uint8_t button_pin = 8;
-bool button_down = false;
+void check_message() {
+    // If something available
+    if (e220ttl.available()>1) {
+	    // read the String message
+#ifdef ENABLE_RSSI
+	    ResponseContainer rc = e220ttl.receiveMessageRSSI();
+#else
+	    ResponseStructContainer rc = e220ttl.receiveMessage(sizeof(joystick));
+#endif
+        // Is something goes wrong print error
+        if (rc.status.code!=1){
+            Serial.println("error");
+            Serial.println(rc.status.getResponseDescription());
+        }else{
+            // Print the data received
+            //Serial.println(rc.status.getResponseDescription());
+            //Serial.println("we got it");
+            //Serial.println(*(int*) rc.data);
+            int data = *(int*) rc.data;
+            
+            com.y = data & 0xFFF;
+            com.x = ((data >> 12) & 0xFFF);
+            com.button = ((data >> 24) & 0x1);
+            //sprintf(output, "X: %04i, Y: %04i, C: %i", com.x, com.y, com.button);
+            //Serial.println(output);
+#ifdef ENABLE_RSSI
+            Serial.print("RSSI: "); Serial.println(rc.rssi, DEC);
+#endif
+        }
+    }
 
-bool rotate = false;
+    if (com.button != old_button) {
+        old_button = com.button;
 
+        noInterrupts();
+        struct encoders enc_temp = {enc.FR, enc.FL, enc.RL,enc.RR};
+        enc.FR = 0;
+        enc.FL = 0;
+        enc.RL = 0;
+        enc.RR = 0;
+        interrupts();
 
-char output[90];
+        ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, &enc_temp, sizeof(encoders));
+        sprintf(output, "FL: %05li, FR: %05li\nRL: %05li, RR: %05li\n", enc_temp.FL, enc_temp.FR, enc_temp.RL, enc_temp.RR);
+        Serial.println(output);
+    }
 
-void printParameters(struct Configuration configuration);
-void printModuleInformation(struct ModuleInformation moduleInformation);
+    /*
+    if (Serial.available()) {
+        String input = Serial.readString();
+        ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, input);
+        // Check If there is some problem of succesfully send
+        Serial.print("Sending: ");
+        Serial.println(input);
+        Serial.println(rs.getResponseDescription());
+    }
+    */
+}
 
-struct joystick {
-	uint16_t y : 12;
-	uint16_t x : 12;
-	boolean button : 1; 
-};
-
-struct encoders {
-	int32_t FR;
-	int32_t FL;
-	int32_t RL;
-	int32_t RR;
-};
-
-struct encoders enc = {0,0,0,0};
-
-struct joystick old_com = {10,15, true};
-struct joystick com = {10, 15, true};
-
-
-void setup() {
-	Serial.begin(9600);
-	delay(500);
-
-	pinMode(x_pin, INPUT);
-	pinMode(y_pin, INPUT);
-	pinMode(button_pin, INPUT);
-	digitalWrite(button_pin, HIGH);
-
-	e220ttl.begin();
+void lora_setup() {
+    e220ttl.begin();
 
 	ResponseStructContainer c;
 	c = e220ttl.getConfiguration();
@@ -69,7 +86,7 @@ void setup() {
 	printParameters(configuration);
 
 //	----------------------- DEFAULT TRANSPARENT -----------------------
-	configuration.ADDL = 0x03;  // First part of address
+	configuration.ADDL = 0x02;  // First part of address
 	configuration.ADDH = 0x00; // Second part
 
 	configuration.CHAN = 23; // Communication channel
@@ -79,7 +96,7 @@ void setup() {
 	configuration.SPED.uartParity = MODE_00_8N1; // Parity bit
 
 	configuration.OPTION.subPacketSetting = SPS_064_10; // Packet size
-	configuration.OPTION.RSSIAmbientNoise = RSSI_AMBIENT_NOISE_DISABLED; // Need to send special joystick
+	configuration.OPTION.RSSIAmbientNoise = RSSI_AMBIENT_NOISE_DISABLED; // Need to send special command
 	configuration.OPTION.transmissionPower = POWER_30; // Device power
 
 	configuration.TRANSMISSION_MODE.enableRSSI = RSSI_DISABLED; // Enable RSSI info
@@ -100,87 +117,6 @@ void setup() {
 
 	printParameters(configuration);
 	c.close();
-
-}
-
-
-
-void loop() {
-	// If something available
-    if (e220ttl.available()>1) {
-	    // read the String message
-#ifdef ENABLE_RSSI
-	    ResponseContainer rc = e220ttl.receiveMessageRSSI();
-#else	
-	    ResponseStructContainer rc = e220ttl.receiveMessage(sizeof(encoders));
-#endif
-        // Is something goes wrong print error
-        if (rc.status.code!=1){
-            Serial.println("error");
-            Serial.println(rc.status.getResponseDescription());
-        }else{
-            // Print the data received
-            //Serial.println(rc.status.getResponseDescription());
-            //Serial.println("we got it");
-            //Serial.println(*(int*) rc.data);
-
-			/*
-            uint64_t *data = (uint64_t*) rc.data;
-            
-            enc.FR = data[0] & 0xFFFFFFFFFFFFFFFF;
-            enc.FL = (data[1]) & 0xFFFFFFFFFFFFFFFF;
-			enc.RL = (data[2]) & 0xFFFFFFFFFFFFFFFF;
-			enc.RR = (data[3]) & 0xFFFFFFFFFFFFFFFF;
-			*/
-			enc = *(encoders*) rc.data;
-            sprintf(output, "FL: %08li, FR: %08li", enc.FL, enc.FR);
-            Serial.println(output);
-			sprintf(output, "RL: %08li, RR: %08li", enc.RL, enc.RR);
-            Serial.println(output);
-#ifdef ENABLE_RSSI
-            Serial.print("RSSI: "); Serial.println(rc.rssi, DEC);
-#endif
-        }
-    }
-
-	/*
-	if (Serial.available()) {
-			String input = Serial.readString();
-			ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, input);
-			// Check If there is some problem of succesfully send
-			Serial.print("Sending: ");
-			Serial.println(input);
-			Serial.println(rs.getResponseDescription());
-	}*/
-
-	if (digitalRead(button_pin) == LOW && !button_down) {
-		button_down = true;
-		rotate = !rotate;
-	} else if (digitalRead(button_pin) == HIGH) {
-		button_down = false;
-	}
-	// sprintf(output, "RAW -- X: %04i, Y: %04i, C: %i", analogRead(x_pin), analogRead(y_pin), rotate);
-	// Serial.println(output);
-	uint16_t x = (uint16_t)round((analogRead(x_pin)/(double)1023.0) * 4095);
-	uint16_t y = (uint16_t)round((analogRead(y_pin)/(double)1023.0) * 4095);
-
-	if (abs((4095/2.0) - x) < abs((4095/2.0) - y)) {
-		x = (4095/2);
-	} else {
-		y = (4095/2);
-	}
-
-	com = {x, y, rotate};
-
-	if (abs(com.y - old_com.y) > 15 || abs(com.x - old_com.x) > 15 || com.button != old_com.button) {
-		//sprintf(output, "X: %04i, Y: %04i, C: %i\n", com.x, com.y, com.button);
-		//Serial.println(output);
-		ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, &com, sizeof(joystick));
-		old_com = com;
-	}
-	//Serial.println((int)sizeof(joystick));
-
-	delay(10);
 }
 
 
