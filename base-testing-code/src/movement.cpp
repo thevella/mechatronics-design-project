@@ -16,8 +16,8 @@ Adafruit_MotorShield motorshield = Adafruit_MotorShield();
 
 BLA::ArrayMatrix<2, 1, double> xyc = {0,0};
 BLA::ArrayMatrix<2, 1, double> speed_solved = {0, 0};
-BLA::ArrayMatrix<2,2, double> speed = {0.70710678118655, -0.70710678118655, 0.70710678118655, 0.70710678118655};
-auto speed_decomp = BLA::LUDecompose(speed);
+BLA::ArrayMatrix<2, 2, double> speed_u_vec = {0.70710678118655, -0.70710678118655, 0.70710678118655, 0.70710678118655};
+auto speed_decomp = BLA::LUDecompose(speed_u_vec);
 
 
 bool down = false;
@@ -37,7 +37,7 @@ void setup_movement() {
     }
     
     Serial.println("Motor Shield found.");
-    
+
 }
 
 void manual_move(uint16_t x, uint16_t y) {
@@ -52,7 +52,6 @@ void manual_move(uint16_t x, uint16_t y) {
         yc = 0;
     }
 
-    //double xyc_abs = sqrt(pow(xc/max_analog/2, 2) + pow(yc/max_analog/2, 2));
 
     xyc = {xc, yc};
 
