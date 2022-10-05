@@ -40,16 +40,16 @@ public:
         // Serial.println(out1); 
         return analogRead(this->val_pin);
     };
-	int32_t read_dist() {
+	int64_t read_dist() {
         uint16_t temp = this->raw_value();
-        return (this->cal_distances_mm[0]*(this->cal_values[0]-temp)+this->cal_distances_mm[1]*(temp - this->cal_values[1]))/((double)(this->cal_values[1] - this->cal_values[0]));
+        return (this->cal_distances_10nm[0]*(this->cal_values[0] - temp)+this->cal_distances_10nm[1]*(temp - this->cal_values[1]))/((double)(this->cal_values[1] - this->cal_values[0]));
 		//return this->a / (this->raw_value() - this->b);
 	};
 
-    int32_t read_dist_wheels() {
-        int32_t temp = -this->read_dist() - this->cal_distances_mm[0];
+    int64_t read_dist_wheels() {
+        int32_t temp = -this->read_dist() - this->cal_distances_10nm[0];
         char out1[50] = "\0";
-        sprintf(out1, "RAW %i: %i", this->sens_num, temp);
+        sprintf(out1, "RAW %li: %li", this->sens_num, temp);
         Serial.println(out1);
         return temp;
     };
@@ -65,10 +65,10 @@ public:
 	void calibrate(uint16_t val1, uint16_t val2);
 
 private:
-	uint16_t cal_distances_mm[2];
+	uint32_t cal_distances_10nm[2];
 	uint16_t cal_values[2];
-	uint32_t a;
-	uint32_t b;
+	uint64_t a;
+	uint64_t b;
 	uint8_t val_pin;
 	uint8_t gpio_pin;
     uint8_t sens_num;

@@ -41,7 +41,7 @@ uint16_t distance_sensor_cal_values[][4] = {{0,0,0,0}, {0,0,0,0}};
 uint16_t robot_width_mm = 155;
 uint16_t wall_to_wall_width_mm = 175+10*2-3;
 
-uint16_t distance_mm_vals[][2] = {{43, wall_to_wall_width_mm-robot_width_mm+43}, {45, wall_to_wall_width_mm-robot_width_mm+45}};
+uint64_t distance_10nm_vals[][2] = {{(43)*100, (wall_to_wall_width_mm-robot_width_mm+43)*100}, {(45)*100, (wall_to_wall_width_mm-robot_width_mm+45)*100}};
 
 dist_sensor dist_left(DIST_LEFT);
 dist_sensor dist_right(DIST_RIGHT);
@@ -103,7 +103,7 @@ dist_sensor::dist_sensor(uint8_t sensor) {
     this->gpio_pin = distance_sensors[sensor][DIST_GPIO];
 
     for (int i = 0; i < 2; ++i) {
-        this->cal_distances_mm[i] = distance_mm_vals[sensor][i];
+        this->cal_distances_10nm[i] = distance_10nm_vals[sensor][i];
         this->cal_values[i] = 0;
     }
     this->sens_num = sensor;
@@ -113,8 +113,8 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
     this->cal_values[0] = val1;
     this->cal_values[1] = val2;
 
-    this->b = (val2 * this->cal_distances_mm[1] - val1 * this->cal_distances_mm[0]) / (this->cal_distances_mm[1] - this->cal_distances_mm[0]);
-    this->a = (val1 - this->b) * cal_distances_mm[0];
+    this->b = (val2 * this->cal_distances_10nm[1] - val1 * this->cal_distances_10nm[0]) / (this->cal_distances_10nm[1] - this->cal_distances_10nm[0]);
+    this->a = (val1 - this->b) * cal_distances_10nm[0];
 }
 
 float get_rotation() {

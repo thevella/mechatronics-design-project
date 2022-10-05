@@ -16,6 +16,11 @@ uint16_t max_speed = 4095/2;
 int16_t cur_speed = 0;
 uint16_t robot_acceleration = 20;
 
+#define MOTOR_FR_CONSTANT (double)1.0
+#define MOTOR_FL_CONSTANT (1.07/(double)1.0)
+#define MOTOR_RL_CONSTANT (0.95/(double)1.0)
+#define MOTOR_RR_CONSTANT (0.96/(double)1.0)
+
 
 double pid_rot_input=80, pid_rot_output=50, pid_rot_setpoint=180;
 double pid_rot_kp=5, pid_rot_ki=0.5, pid_rot_kd=2;
@@ -72,7 +77,7 @@ void recenter() {
     }
 
 
-    while (abs(dist_left.read_dist_wheels() - (int)dist_right.read_dist_wheels()) > 3) {
+    while (abs(dist_left.read_dist_wheels() - (int)dist_right.read_dist_wheels()) > 250) {
         if (dist_left.read_dist_wheels() < dist_right.read_dist_wheels()) {
             robot_move(RB_LEFT, max_speed/2);
             Serial.println("moving left");
@@ -257,10 +262,10 @@ void robot_move(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
     }
     
 
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg*(4822/4702.0))) );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos*(4852/4854.0))) );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg*(7047/7199.0))) );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos)) );
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_FL_CONSTANT)) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_RL_CONSTANT)) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_RR_CONSTANT)) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_FR_CONSTANT)) );
 }
 
 void robot_rotation(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
@@ -283,10 +288,10 @@ void robot_rotation(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) 
     }
     
 
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( speed );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( speed );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( speed );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( speed );
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( round(speed * MOTOR_FL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( round(speed * MOTOR_RL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( round(speed * MOTOR_RR_CONSTANT) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( round(speed * MOTOR_FR_CONSTANT) );
 }
 
 void robot_rotation_by_deg (ROBOT_DIR direction, uint16_t degrees, uint16_t speed, uint16_t acceleration) {
