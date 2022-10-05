@@ -7,23 +7,16 @@
 #include "sensors.h"
 #include "movement_const.h"
 
-enum CENTER_TYPE {
-    CENTER_F_B,
-    CENTER_L_R
-};
+extern uint16_t robot_acceleration;
+extern uint16_t max_speed;
 
-enum ROBOT_DIR {
-    RB_FORWARD,
-    RB_BACKWARD,
-    RB_RIGHT,
-    RB_LEFT,
-    RB_TURN_CC,
-    RB_TURN_CW
-};
+void robot_move(ROBOT_DIR, uint16_t speed = max_speed, uint16_t acceleration = robot_acceleration);
+
+void robot_rotation(ROBOT_DIR, uint16_t speed = max_speed, uint16_t acceleration = robot_acceleration);
+
+void robot_rotation_by_deg (ROBOT_DIR, uint16_t, uint16_t = max_speed, uint16_t = robot_acceleration);
 
 void manual_move(uint16_t, uint16_t);
 void manual_rotate(int);
-
-
 
 void setup_movement();

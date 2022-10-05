@@ -34,3 +34,22 @@
 #else
 #define MOTOR_RR_BACKWARD FORWARD
 #endif
+
+enum CENTER_TYPE {
+    CENTER_F_B,
+    CENTER_L_R
+};
+
+enum ROBOT_DIR {
+    RB_FORWARD,
+    RB_BACKWARD,
+    RB_RIGHT,
+    RB_LEFT,
+    RB_STOP,
+    RB_TURN_CC,
+    RB_TURN_CW
+};
+
+#ifdef tune
+extern uint16_t max_speed;
+#endif

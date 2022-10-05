@@ -1,18 +1,12 @@
+
 #include "main.h"
 #include "movement.h"
 #include <Arduino.h>
 #include <BasicLinearAlgebra.h>
 #include <Wire.h>
 
+
 bool do_rotate = false;
-
-void center(CENTER_TYPE dir) {
-    if (dir == CENTER_F_B) {
-
-    } else if (dir == CENTER_L_R) {
-
-    }
-}
 
 
 void setup() {
@@ -25,6 +19,11 @@ void setup() {
 
     lora_setup();
 
+    
+    while (true) {
+        ;
+    }
+
 }
 
 void loop() {
@@ -35,7 +34,7 @@ void loop() {
     }
 
     check_message();
-    Serial.println(analogRead(distance_sensors[DIST_LEFT][DIST_VAL]));
+    Serial.println(dist_left.raw_value());
 
     delay(5);
 
@@ -43,6 +42,12 @@ void loop() {
     //sprintf(output, "X: %04i, Y: %04i, C: %i", analogRead(x_pin), analogRead(y_pin), do_rotate);
     //Serial.println(output);
 }
+
+
+
+
+
+
 
 
 
