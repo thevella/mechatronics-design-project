@@ -20,3 +20,5 @@ void manual_move(uint16_t, uint16_t);
 void manual_rotate(int);
 
 void setup_movement();
+
+void recenter();

@@ -34,7 +34,7 @@ const uint8_t MOTOR_ENC_PINS[4][2] = {*MOTOR_FR_ENC_PINS, *MOTOR_FL_ENC_PINS, *M
 volatile struct encoders enc = {0, 0, 0, 0};
 
 // Distance Sensors
-const uint8_t distance_sensors[][2] = {{A0, 13}, {A1, 14}};
+const uint8_t distance_sensors[][2] = {{A1, 13}, {A0, 12}};
 const uint8_t num_dist_sensors = 2;
 uint16_t distance_sensor_cal_values[][4] = {{0,0,0,0}, {0,0,0,0}};
 
@@ -88,7 +88,7 @@ void setup_sensors() {
                DMP_FEATURE_GYRO_CAL, // Use gyro calibration
                10); // Set DMP FIFO rate to 10 Hz
     
-    delay(10000);
+    //delay(10000);
     for (int i = 0; i < 10; ++i) {
         get_rotation();
     }
@@ -106,6 +106,7 @@ dist_sensor::dist_sensor(uint8_t sensor) {
         this->cal_distances_mm[i] = distance_mm_vals[sensor][i];
         this->cal_values[i] = 0;
     }
+    this->sens_num = sensor;
 }
 
 void dist_sensor::calibrate(uint16_t val1, uint16_t val2){

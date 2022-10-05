@@ -34,10 +34,25 @@ class dist_sensor {
 public:
 	dist_sensor(uint8_t sensor);
 
-	uint16_t raw_value() {return analogRead(this->val_pin);};
-	uint16_t read_dist() {
-		return this->a / (this->raw_value() - this->b);
+	uint16_t raw_value() {
+        // char out1[50] = "\0";
+        // sprintf(out1, "RAW %i: %i", this->sens_num, analogRead(this->val_pin));
+        // Serial.println(out1); 
+        return analogRead(this->val_pin);
+    };
+	int32_t read_dist() {
+        uint16_t temp = this->raw_value();
+        return (this->cal_distances_mm[0]*(this->cal_values[0]-temp)+this->cal_distances_mm[1]*(temp - this->cal_values[1]))/((double)(this->cal_values[1] - this->cal_values[0]));
+		//return this->a / (this->raw_value() - this->b);
 	};
+
+    int32_t read_dist_wheels() {
+        int32_t temp = -this->read_dist() - this->cal_distances_mm[0];
+        char out1[50] = "\0";
+        sprintf(out1, "RAW %i: %i", this->sens_num, temp);
+        Serial.println(out1);
+        return temp;
+    };
 
 	void change_state(bool turn_on) {
 		if (turn_on) {
@@ -56,6 +71,7 @@ private:
 	uint32_t b;
 	uint8_t val_pin;
 	uint8_t gpio_pin;
+    uint8_t sens_num;
 };
 
 extern dist_sensor dist_left;

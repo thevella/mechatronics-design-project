@@ -33,6 +33,7 @@ float deadband_delta;
 PID turning_pid(&pid_rot_input, &pid_rot_output, &pid_rot_setpoint, pid_rot_kp, pid_rot_ki, pid_rot_kd, DIRECT);
 
 void calibrate_center(CENTER_TYPE);
+void recenter();
 
 void setup_movement() {
     Serial.println("Adafruit Motorshield v2 - DC Motor test!");
@@ -52,7 +53,6 @@ void setup_movement() {
     turning_pid.SetMode(AUTOMATIC);
     turning_pid.SetOutputLimits(PID_LIM_MIN, PID_LIM_MAX);
 
-    calibrate_center(CENTER_L_R);
 
     epid_info_t pid_rot_err = epid_init(&pid_rot,
         pid_rot_input, pid_rot_input, -max_speed,
@@ -62,6 +62,28 @@ void setup_movement() {
         Serial.print("\n\n** ERROR: epid_err != EPID_ERR_NONE **\n\n");
         while (1) { ; }
     }
+
+    calibrate_center(CENTER_L_R);
+}
+
+void recenter() {
+    if (abs(dist_left.read_dist_wheels() - dist_right.read_dist_wheels()) > 100) {
+        return;
+    }
+
+
+    while (abs(dist_left.read_dist_wheels() - (int)dist_right.read_dist_wheels()) > 3) {
+        if (dist_left.read_dist_wheels() < dist_right.read_dist_wheels()) {
+            robot_move(RB_LEFT, max_speed/2);
+            Serial.println("moving left");
+        } else {
+            robot_move(RB_RIGHT, max_speed/2);
+            Serial.println("moving right");
+        }
+        delay(100);
+    } 
+
+    robot_move(RB_STOP);
 }
 
 uint16_t pid_rot_calculate(uint16_t set_point) {
@@ -111,32 +133,41 @@ void calibrate_center(CENTER_TYPE dir) {
         dist_back.calibrate(dist_back.raw_value(), temp[1]);
 
     } else if (dir == CENTER_L_R) {
+        Serial.println("centering right");
         uint16_t old_dist_val = dist_right.raw_value();
         robot_move(RB_RIGHT);
+        delay(500);
 
-        while (abs(dist_right.raw_value() - old_dist_val) > 20) {
+        while (abs(dist_right.raw_value() - old_dist_val) > 15) {
             old_dist_val = dist_right.raw_value();
-            delay(100);
+            delay(500);
         }
 
         robot_move(RB_STOP);
+
+        delay(400);
 
         temp[0] = dist_right.raw_value();
         temp[1] = dist_left.raw_value();
 
         old_dist_val = dist_left.raw_value();
         
+        Serial.println("centering left");
         robot_move(RB_LEFT);
+        delay(500);
 
-        while (abs(dist_left.raw_value() - old_dist_val) > 20) {
+        while (abs(dist_left.raw_value() - old_dist_val) > 15) {
             old_dist_val = dist_left.raw_value();
-            delay(100);
+            delay(500);
         }
 
         robot_move(RB_STOP);
 
         dist_right.calibrate(temp[0], dist_right.raw_value());
-
+        Serial.print(dist_left.raw_value());
+        Serial.print(",");
+        Serial.println(temp[1]);
+        delay(2000);
         dist_left.calibrate(dist_left.raw_value(), temp[1]);
     }
 }
@@ -192,10 +223,10 @@ void robot_move(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
     double speed_neg = speed;
     double speed_pos = speed;
 
-    if (direction == RB_FORWARD || direction == RB_LEFT) {
+    if (direction == RB_FORWARD) {
         motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
         motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
-    } else if (direction == RB_BACKWARD || direction == RB_RIGHT) {
+    } else if (direction == RB_BACKWARD) {
         motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
         motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
     } else if (direction == RB_STOP) {
@@ -205,10 +236,22 @@ void robot_move(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
         motorshield.getMotor(MOTOR_FR)->run(RELEASE);
     }
 
-    if (direction == RB_FORWARD || direction == RB_RIGHT) {
+    if (direction == RB_FORWARD) {
         motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
         motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
-    } else if (direction == RB_BACKWARD || direction == RB_LEFT) {
+    } else if (direction == RB_BACKWARD) {
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
+    }
+
+    if (direction == RB_LEFT) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
+    } else if (direction == RB_RIGHT) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
         motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
         motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
     }
