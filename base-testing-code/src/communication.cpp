@@ -45,9 +45,11 @@ void check_message() {
         }
     }
 
+
     if (joystick_com.button != old_button) {
         old_button = joystick_com.button;
 
+        #ifdef USE_ENCODERS
         noInterrupts();
         struct encoders enc_temp = {enc.FR, enc.FL, enc.RL,enc.RR};
         enc.FR = 0;
@@ -59,6 +61,7 @@ void check_message() {
         ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, &enc_temp, sizeof(encoders));
         sprintf(output, "FL: %05li, FR: %05li\nRL: %05li, RR: %05li\n", enc_temp.FL, enc_temp.FR, enc_temp.RL, enc_temp.RR);
         Serial.println(output);
+        #endif
     }
 
     /*

@@ -1,6 +1,8 @@
 #pragma once
 #include <Arduino.h>
 
+#include "options.h"
+
 #define MOTOR_FR 1
 #define MOTOR_FL 2
 #define MOTOR_RL 3
@@ -50,6 +52,6 @@ enum ROBOT_DIR {
     RB_TURN_CW
 };
 
-#ifdef tune
+#ifdef TUNE_PID_ROTATE
 extern uint16_t max_speed;
 #endif
