@@ -40,14 +40,23 @@ public:
 	dist_sensor(uint8_t sensor);
 
 	uint16_t raw_value() {
+        uint64_t temp = 0;
+
+        for (int i = 0; i < 10; ++i) {
+            temp += analogRead(this->val_pin);
+            delay(10);
+        }
+
+        return temp/10;
         // char out1[50] = "\0";
         // sprintf(out1, "RAW %i: %i", this->sens_num, analogRead(this->val_pin));
         // Serial.println(out1); 
-        return analogRead(this->val_pin);
+        //return analogRead(this->val_pin);
     };
 	int read_dist() {
         uint16_t temp = this->raw_value();
-        int temp2 = (int)round((this->cal_distances_10nm[0]*(this->cal_values[0] - temp)+this->cal_distances_10nm[1]*(temp - this->cal_values[1]))/((double)(this->cal_values[1] - this->cal_values[0])));
+        //int temp2 = (int)round((this->cal_distances_10nm[0]*(this->cal_values[0] - temp)+this->cal_distances_10nm[1]*(temp - this->cal_values[1]))/((double)(this->cal_values[1] - this->cal_values[0])));
+        int temp2 = round(this->cal_distances_10nm[0]+(((temp-this->cal_values[0])/((double)(this->cal_values[1] - this->cal_values[0])))*(this->cal_distances_10nm[1] - this->cal_distances_10nm[0])));
         //double temp3 = (double)this->a / (temp - this->b);
 
         #ifdef DEBUG_PRINT_DIST
@@ -75,7 +84,7 @@ public:
         Serial.println(out1);
         #endif
 
-        int temp = -temp1 - this->cal_distances_10nm[0];
+        int temp = temp1 - this->cal_distances_10nm[0];
         
         #ifdef DEBUG_PRINT_DIST
         sprintf(out1, "DIST %i: %i", this->sens_num, temp);

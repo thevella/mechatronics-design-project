@@ -18,7 +18,7 @@ uint16_t robot_acceleration = 20;
 
 #define MOTOR_FR_CONSTANT (double)1.0
 #define MOTOR_FL_CONSTANT (1.07/(double)1.0)
-#define MOTOR_RL_CONSTANT (0.95/(double)1.0)
+#define MOTOR_RL_CONSTANT (0.88/(double)1.0)
 #define MOTOR_RR_CONSTANT (0.96/(double)1.0)
 
 
@@ -70,10 +70,6 @@ void setup_movement() {
 
     calibrate_center(CENTER_L_R);
 
-    while(true) {
-        recenter();
-        delay(2000);
-    }
 }
 
 void recenter() {
@@ -83,26 +79,31 @@ void recenter() {
         return;
     }
 
-    char out1[50];
+    
 
+    #ifdef DEBUG_PRINT_DIST
+    char out1[50];
     sprintf(out1, "Difference: %i", dist_left.read_dist_wheels() - dist_right.read_dist_wheels());
     Serial.println(out1);
+    #endif
 
     while (abs(left - right) > 10) {
         left = dist_left.read_dist_wheels();
         right = dist_right.read_dist_wheels();
         Serial.println("need to move");
-        if (left < right) {
-            robot_move(RB_LEFT, max_speed/4);
+        if (left > right) {
+            robot_move(RB_LEFT, max_speed/3);
             Serial.println("moving left");
         } else {
-            robot_move(RB_RIGHT, max_speed/4);
+            robot_move(RB_RIGHT, max_speed/3);
             Serial.println("moving right");
         }
         delay(100);
     } 
 
     robot_move(RB_STOP);
+
+    delay(500);
 }
 
 uint16_t pid_rot_calculate(uint16_t set_point) {
@@ -152,10 +153,11 @@ void calibrate_center(CENTER_TYPE dir) {
         // dist_back.calibrate(dist_back.raw_value(), temp[1]);
 
     } else if (dir == CENTER_L_R) {
+        int delay_val = 1600;
         Serial.println("centering right");
         uint16_t old_dist_val = dist_right.raw_value();
-        robot_move(RB_RIGHT);
-        delay(2000);
+        robot_move(RB_RIGHT, max_speed/1.5);
+        delay(delay_val);
 
         // while (abs(dist_right.raw_value() - old_dist_val) > 10) {
         //     old_dist_val = dist_right.raw_value();
@@ -172,8 +174,8 @@ void calibrate_center(CENTER_TYPE dir) {
         old_dist_val = dist_left.raw_value();
         
         Serial.println("centering left");
-        robot_move(RB_LEFT);
-        delay(2000);
+        robot_move(RB_LEFT, max_speed/1.5);
+        delay(delay_val);
 
         // while (abs(dist_left.raw_value() - old_dist_val) > 10) {
         //     old_dist_val = dist_left.raw_value();
@@ -182,11 +184,14 @@ void calibrate_center(CENTER_TYPE dir) {
 
         robot_move(RB_STOP);
 
+
         dist_right.calibrate(temp[0], dist_right.raw_value());
+        #ifdef DEBUG_PRINT_DIST
         Serial.print(dist_left.raw_value());
         Serial.print(",");
         Serial.println(temp[1]);
         delay(2000);
+        #endif
         dist_left.calibrate(dist_left.raw_value(), temp[1]);
     }
 }

@@ -43,7 +43,11 @@ uint16_t distance_sensor_cal_values[][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,
 uint16_t robot_width_mm = 155;
 uint16_t wall_to_wall_width_mm = 175+10*2-3;
 
-uint64_t distance_10nm_vals[][2] = {{(43)*1, (wall_to_wall_width_mm-robot_width_mm+43)*1}, {(45)*1, (wall_to_wall_width_mm-robot_width_mm+45)*1}, {(45)*1, (wall_to_wall_width_mm-robot_width_mm+45)*1}};
+//2410 54
+//1954 120
+uint64_t distance_10nm_vals[][2] = {{(43)*1, (wall_to_wall_width_mm-robot_width_mm+43)*1}, 
+                                    {(45)*1, (wall_to_wall_width_mm-robot_width_mm+45)*1}, 
+                                    {(54)*1, (120+54)*1}};
 
 dist_sensor dist_left(DIST_LEFT);
 dist_sensor dist_right(DIST_RIGHT);
@@ -101,10 +105,30 @@ void setup_sensors() {
     }
 
     #endif
+    //2410 54
+    //1954 120
+
+    dist_front.calibrate(2410, 1954);
 
     // while(true) {
-    //     Serial.println(dist_front.raw_value());
+    //     // uint64_t avg = 0;
+
+    //     // for (int i = 0 ; i < 10; ++i) {
+    //     //     avg += dist_front.raw_value();
+    //     //     delay(10);
+    //     // }
+
+    //     // avg = avg/10;
+
+    //     // char out1[50];
+
+    //     // sprintf(out1, "%lli", avg);
+
+    //     // Serial.println(out1);
+
+    //     Serial.println(dist_front.read_dist_wheels());
     //     delay(500);
+        
     // }
 
     
