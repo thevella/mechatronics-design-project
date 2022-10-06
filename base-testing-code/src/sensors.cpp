@@ -34,19 +34,19 @@ const uint8_t MOTOR_ENC_PINS[4][2] = {*MOTOR_FR_ENC_PINS, *MOTOR_FL_ENC_PINS, *M
 volatile struct encoders enc = {0, 0, 0, 0};
 
 // Distance Sensors
-const uint8_t distance_sensors[][2] = {{A1, 13}, {A0, 12}};
+const uint8_t distance_sensors[][2] = {{A0, 13}, {A1, 12}};
 const uint8_t num_dist_sensors = 2;
 uint16_t distance_sensor_cal_values[][4] = {{0,0,0,0}, {0,0,0,0}};
 
 uint16_t robot_width_mm = 155;
 uint16_t wall_to_wall_width_mm = 175+10*2-3;
 
-uint64_t distance_10nm_vals[][2] = {{(43)*100, (wall_to_wall_width_mm-robot_width_mm+43)*100}, {(45)*100, (wall_to_wall_width_mm-robot_width_mm+45)*100}};
+uint64_t distance_10nm_vals[][2] = {{(43)*1, (wall_to_wall_width_mm-robot_width_mm+43)*1}, {(45)*1, (wall_to_wall_width_mm-robot_width_mm+45)*1}};
 
 dist_sensor dist_left(DIST_LEFT);
 dist_sensor dist_right(DIST_RIGHT);
-dist_sensor dist_front(DIST_FRONT);
-dist_sensor dist_back(DIST_BACK);
+// dist_sensor dist_front(DIST_FRONT);
+// dist_sensor dist_back(DIST_BACK);
 
 
 const uint16_t joystick_deadzone = 100;
@@ -74,6 +74,7 @@ void setup_sensors() {
     attachInterrupt(digitalPinToInterrupt(MOTOR_RL_ENC_PINS[0]), MOTOR_RL_ENC_0, RISING);
     attachInterrupt(digitalPinToInterrupt(MOTOR_RR_ENC_PINS[0]), MOTOR_RR_ENC_0, RISING);
 
+    #ifdef USE_GYRO
     if (imu.begin() != INV_SUCCESS) {
         while (true) {
             Serial.println("Unable to communicate with MPU-9250");
@@ -88,10 +89,15 @@ void setup_sensors() {
                DMP_FEATURE_GYRO_CAL, // Use gyro calibration
                10); // Set DMP FIFO rate to 10 Hz
     
-    //delay(10000);
+    delay(10000);
+    
     for (int i = 0; i < 10; ++i) {
         get_rotation();
     }
+
+    #endif
+
+    
 
 
 }

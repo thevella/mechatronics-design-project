@@ -40,17 +40,44 @@ public:
         // Serial.println(out1); 
         return analogRead(this->val_pin);
     };
-	int64_t read_dist() {
+	int read_dist() {
         uint16_t temp = this->raw_value();
-        return (this->cal_distances_10nm[0]*(this->cal_values[0] - temp)+this->cal_distances_10nm[1]*(temp - this->cal_values[1]))/((double)(this->cal_values[1] - this->cal_values[0]));
-		//return this->a / (this->raw_value() - this->b);
+        int temp2 = (int)round((this->cal_distances_10nm[0]*(this->cal_values[0] - temp)+this->cal_distances_10nm[1]*(temp - this->cal_values[1]))/((double)(this->cal_values[1] - this->cal_values[0])));
+        //double temp3 = (double)this->a / (temp - this->b);
+
+        #ifdef DEBUG_PRINT_DIST
+        char out1[50] = "\0";
+        
+        sprintf(out1, "RAW %i: %i", this->sens_num, temp);
+        
+        Serial.println(out1);
+        
+        sprintf(out1, "RAW_DIST BEFORE %i: %i", this->sens_num, temp2);
+        
+        Serial.println(out1);
+        #endif
+
+        return temp2;
+		//return round((double)this->a / (temp - this->b));
 	};
 
-    int64_t read_dist_wheels() {
-        int32_t temp = -this->read_dist() - this->cal_distances_10nm[0];
+    int read_dist_wheels() {
+        int temp1 = this->read_dist();
+
+        #ifdef DEBUG_PRINT_DIST
         char out1[50] = "\0";
-        sprintf(out1, "RAW %li: %li", this->sens_num, temp);
+        sprintf(out1, "RAW_DIST %i: %i", this->sens_num, temp1);
         Serial.println(out1);
+        #endif
+
+        int temp = -temp1 - this->cal_distances_10nm[0];
+        
+        #ifdef DEBUG_PRINT_DIST
+        sprintf(out1, "DIST %i: %i", this->sens_num, temp);
+        Serial.println(out1);
+        //delay(2000);
+        #endif
+
         return temp;
     };
 

@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include "options.h"
+
 #include "sensors.h"
 
 #define E220_30

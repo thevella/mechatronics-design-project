@@ -69,20 +69,34 @@ void setup_movement() {
     }
 
     calibrate_center(CENTER_L_R);
+
+    while(true) {
+        recenter();
+        delay(2000);
+    }
 }
 
 void recenter() {
-    if (abs(dist_left.read_dist_wheels() - dist_right.read_dist_wheels()) > 100) {
+    int64_t left = dist_left.read_dist_wheels();
+    int64_t right = dist_right.read_dist_wheels();
+    if (abs(left - right) > 1000) {
         return;
     }
 
+    char out1[50];
 
-    while (abs(dist_left.read_dist_wheels() - (int)dist_right.read_dist_wheels()) > 250) {
-        if (dist_left.read_dist_wheels() < dist_right.read_dist_wheels()) {
-            robot_move(RB_LEFT, max_speed/2);
+    sprintf(out1, "Difference: %i", dist_left.read_dist_wheels() - dist_right.read_dist_wheels());
+    Serial.println(out1);
+
+    while (abs(left - right) > 10) {
+        left = dist_left.read_dist_wheels();
+        right = dist_right.read_dist_wheels();
+        Serial.println("need to move");
+        if (left < right) {
+            robot_move(RB_LEFT, max_speed/4);
             Serial.println("moving left");
         } else {
-            robot_move(RB_RIGHT, max_speed/2);
+            robot_move(RB_RIGHT, max_speed/4);
             Serial.println("moving right");
         }
         delay(100);
@@ -109,44 +123,44 @@ void calibrate_center(CENTER_TYPE dir) {
     uint16_t temp[2];
 
     if (dir == CENTER_F_B) {
-        uint16_t old_dist_val = dist_right.raw_value();
-        robot_move(RB_FORWARD);
+        // uint16_t old_dist_val = dist_right.raw_value();
+        // robot_move(RB_FORWARD);
 
-        while (abs(dist_front.raw_value() - old_dist_val) > 20) {
-            old_dist_val = dist_front.raw_value();
-            delay(100);
-        }
+        // while (abs(dist_front.raw_value() - old_dist_val) > 20) {
+        //     old_dist_val = dist_front.raw_value();
+        //     delay(100);
+        // }
 
-        robot_move(RB_STOP);
+        // robot_move(RB_STOP);
 
-        temp[0] = dist_front.raw_value();
-        temp[1] = dist_back.raw_value();
+        // temp[0] = dist_front.raw_value();
+        // temp[1] = dist_back.raw_value();
 
-        old_dist_val = dist_back.raw_value();
+        // old_dist_val = dist_back.raw_value();
         
-        robot_move(RB_BACKWARD);
+        // robot_move(RB_BACKWARD);
 
-        while (abs(dist_back.raw_value() - old_dist_val) > 20) {
-            old_dist_val = dist_back.raw_value();
-            delay(100);
-        }
+        // while (abs(dist_back.raw_value() - old_dist_val) > 2) {
+        //     old_dist_val = dist_back.raw_value();
+        //     delay(100);
+        // }
 
-        robot_move(RB_STOP);
+        // robot_move(RB_STOP);
 
-        dist_front.calibrate(temp[0], dist_front.raw_value());
+        // dist_front.calibrate(temp[0], dist_front.raw_value());
 
-        dist_back.calibrate(dist_back.raw_value(), temp[1]);
+        // dist_back.calibrate(dist_back.raw_value(), temp[1]);
 
     } else if (dir == CENTER_L_R) {
         Serial.println("centering right");
         uint16_t old_dist_val = dist_right.raw_value();
         robot_move(RB_RIGHT);
-        delay(500);
+        delay(2000);
 
-        while (abs(dist_right.raw_value() - old_dist_val) > 15) {
-            old_dist_val = dist_right.raw_value();
-            delay(500);
-        }
+        // while (abs(dist_right.raw_value() - old_dist_val) > 10) {
+        //     old_dist_val = dist_right.raw_value();
+        //     delay(500);
+        // }
 
         robot_move(RB_STOP);
 
@@ -159,12 +173,12 @@ void calibrate_center(CENTER_TYPE dir) {
         
         Serial.println("centering left");
         robot_move(RB_LEFT);
-        delay(500);
+        delay(2000);
 
-        while (abs(dist_left.raw_value() - old_dist_val) > 15) {
-            old_dist_val = dist_left.raw_value();
-            delay(500);
-        }
+        // while (abs(dist_left.raw_value() - old_dist_val) > 10) {
+        //     old_dist_val = dist_left.raw_value();
+        //     delay(500);
+        // }
 
         robot_move(RB_STOP);
 
