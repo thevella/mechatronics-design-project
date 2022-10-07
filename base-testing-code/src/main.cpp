@@ -157,13 +157,13 @@ void loop() {
 
     forward_sense(sensor_offset);
 
-    strafe(RB_RIGHT);
+    strafe(RB_RIGHT, 50);
 
     backward();
 
     forward_sense(sensor_offset);
 
-    strafe(RB_LEFT, 50);
+    strafe(RB_LEFT, 75);
 
     backward();
 
@@ -218,7 +218,7 @@ void loop() {
 
     forward(1, 150, true, true);
 
-    forward(2, 150, true, true);
+    forward(2, 100, true, true);
 
     forward_sense(sensor_offset);
 
@@ -256,7 +256,9 @@ void loop() {
 
     // Grab soil
     grip_sand();
-    
+
+    backward();
+
 
     while(true) {}
 
