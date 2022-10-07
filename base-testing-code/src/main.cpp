@@ -6,6 +6,7 @@
 #include <Wire.h>
 
 
+
 bool do_rotate = false;
 
 
@@ -25,7 +26,7 @@ void setup() {
 
 }
 
-void forward(int number, int16_t delay_offset = 0, bool center = false, bool hard = false) {
+void forward(int number, int16_t delay_offset = 0, bool center = false, bool hard = false, bool on_right = true) {
     const int move_delay = 2050;
 
 
@@ -34,16 +35,21 @@ void forward(int number, int16_t delay_offset = 0, bool center = false, bool har
             robot_move(RB_FORWARD);
             delay((move_delay+delay_offset)*2);
             robot_move(RB_STOP);
-            delay(500);
+            delay(motor_stop_delay);
             if (center) {
                 if (hard) {
-                    robot_move(RB_RIGHT);
+                    if (on_right) {
+                        robot_move(RB_RIGHT);
+                    } else {
+                        robot_move(RB_LEFT);
+                    }
+                    
                     delay(1000);
                     robot_move(RB_STOP);
-                    delay(500);
+                    delay(motor_stop_delay);
                 }
                 recenter();
-                delay(500);
+
             } 
         }
     }
@@ -52,25 +58,29 @@ void forward(int number, int16_t delay_offset = 0, bool center = false, bool har
         robot_move(RB_FORWARD);
         delay(move_delay + delay_offset);
         robot_move(RB_STOP);
-        delay(500);
+        delay(motor_stop_delay);
+        if (center) {
+            if (hard) {
+                if (on_right) {
+                    robot_move(RB_RIGHT);
+                } else {
+                    robot_move(RB_LEFT);
+                }
+                delay(1000);
+                robot_move(RB_STOP);
+                delay(motor_stop_delay);
+            }
+            recenter();
+        }
     }
 
-    if (center) {
-        if (hard) {
-            robot_move(RB_RIGHT);
-            delay(1000);
-            robot_move(RB_STOP);
-            delay(500);
-        }
-        recenter();
-        delay(500);
-    }
+    
     
 
 }
 
-void forward_sense(int offset) {
-    robot_move(RB_FORWARD);
+void forward_sense(int offset, int speed = max_speed) {
+    robot_move(RB_FORWARD, speed);
 
     //2410 54
     //1954 120
@@ -81,7 +91,7 @@ void forward_sense(int offset) {
 
     robot_move(RB_STOP);
 
-    delay(500);
+    delay(motor_stop_delay);
 
 }
 
@@ -92,7 +102,7 @@ void backward(int time_offset = 0) {
 
     robot_move(RB_STOP);
 
-    delay(500);
+    delay(motor_stop_delay);
 }
 
 void strafe(ROBOT_DIR dir, int time_offset = 0) {
@@ -102,7 +112,7 @@ void strafe(ROBOT_DIR dir, int time_offset = 0) {
 
     robot_move(RB_STOP);
 
-    delay(500);
+    delay(motor_stop_delay);
 }
 
 void turn(ROBOT_DIR dir, int time_offset = 0) {
@@ -112,7 +122,7 @@ void turn(ROBOT_DIR dir, int time_offset = 0) {
 
     robot_move(RB_STOP);
 
-    delay(500);
+    delay(motor_stop_delay);
 }
 
 void loop() {
@@ -135,13 +145,15 @@ void loop() {
     recenter();
 
     //forward(1, 100, false);
-    forward_sense(sensor_offset);
+    forward_sense(sensor_offset+5);
 
     turn(RB_TURN_CW);
 
+    strafe(RB_LEFT, -2200);
+
     backward();
 
-    forward(1, 0, true, true);
+    forward(1, 150, true, true);
 
     forward_sense(sensor_offset);
 
@@ -151,13 +163,13 @@ void loop() {
 
     forward_sense(sensor_offset);
 
-    strafe(RB_LEFT);
+    strafe(RB_LEFT, 50);
 
     backward();
 
     // Ramp
 
-    forward_sense(sensor_offset);
+    forward_sense(sensor_offset, max_speed*1.7);
 
     turn(RB_TURN_CW);
 
@@ -165,23 +177,24 @@ void loop() {
 
     //forward(1, 0, true, true);
 
-    forward_sense(sensor_offset);
+    forward_sense(sensor_offset, max_speed*1.7);
 
     turn(RB_TURN_CW);
 
     //forward(1, 200, true, true);
 
-    forward_sense(sensor_offset);
+    forward_sense(sensor_offset, max_speed*1.7);
 
     turn(RB_TURN_CW);
 
-    //forward(1, 500, true);
+    forward(2, 600, true, true, false);
 
     forward_sense(sensor_offset);
 
     turn(RB_TURN_CW);
 
     backward();
+    strafe(RB_LEFT, -2000);
 
     forward_sense(sensor_offset);
 
@@ -189,48 +202,61 @@ void loop() {
 
     // Bottom
 
+    turn(RB_TURN_CW, 200);
+
+    //strafe(RB_LEFT, -2100);
+
+    backward();
+
+    forward(1, 150, true, true);
+
+    forward_sense(sensor_offset+5);
+
+    turn(RB_TURN_CC);
+
+    backward();
+
+    forward(1, 150, true, true);
+
+    forward(2, 150, true, true);
+
+    forward_sense(sensor_offset);
+
+    turn(RB_TURN_CC, 50);
+
+    strafe(RB_RIGHT, -2150);
+
+    backward();
+
+    forward(1, 150);
+
+    turn(RB_TURN_CC);
+
+    strafe(RB_RIGHT, -2250);
+
+    backward();
+
+    forward(1, 150, true, true);
+
+    forward_sense(sensor_offset);
+
     turn(RB_TURN_CW);
 
     backward();
 
-    forward_sense(sensor_offset);
+    forward_sense(sensor_offset+75);
 
     turn(RB_TURN_CC);
 
-    backward();
-
-    forward(1, 600, true, true);
-
-    forward_sense(sensor_offset);
-
-    turn(RB_TURN_CC);
+    strafe(RB_RIGHT, -2100);
 
     backward();
 
-    forward(1, 500);
-
-    turn(RB_TURN_CC);
-
-    backward();
-
-    forward_sense(sensor_offset);
-
-    turn(RB_TURN_CW);
-
-    backward();
-
-    forward_sense(sensor_offset);
-
-    turn(RB_TURN_CC);
-
-    backward();
-
-    forward(1, 500, true, true);
+    forward(1, 150, true, true);
 
     // Grab soil
-
+    grip_sand();
     
-
 
     while(true) {}
 

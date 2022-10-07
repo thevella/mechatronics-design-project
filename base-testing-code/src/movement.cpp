@@ -4,6 +4,13 @@
 #include <PID_v1.h>
 #include <pid.h>
 
+int motor_stop_delay = 250;
+
+Servo claw_servo;
+Servo rotate_servo;
+
+void grip_sand();
+
 
 Adafruit_MotorShield motorshield = Adafruit_MotorShield();
 
@@ -69,7 +76,47 @@ void setup_movement() {
     }
 
     calibrate_center(CENTER_L_R);
+    //grip_sand();
 
+    //while(true){}
+}
+
+void grip_sand(){
+
+    int temp = 15;
+    int delay_time = 50;
+
+    claw_servo.write(0);
+    claw_servo.attach(10);
+    delay(300);
+
+    claw_servo.detach();
+
+    rotate_servo.write(90);
+    rotate_servo.attach(9);
+    delay(300);
+    
+
+    temp = 63;
+
+    if (temp < rotate_servo.read()) {
+        int diff = rotate_servo.read() - temp;
+        for (int i = abs(diff); i > 0; --i) {
+            rotate_servo.write(rotate_servo.read() - 1);
+            delay(delay_time);
+        }
+    } else {
+        int diff = rotate_servo.read() - temp;
+        for (int i = abs(diff); i > 0; --i) {
+            rotate_servo.write(rotate_servo.read() + 1);
+            delay(delay_time);
+        }
+    }
+
+    delay(300);
+    
+    claw_servo.write(32);
+    claw_servo.attach(10);
 }
 
 void recenter() {
@@ -103,7 +150,7 @@ void recenter() {
 
     robot_move(RB_STOP);
 
-    delay(500);
+    delay(motor_stop_delay);
 }
 
 uint16_t pid_rot_calculate(uint16_t set_point) {
@@ -166,7 +213,7 @@ void calibrate_center(CENTER_TYPE dir) {
 
         robot_move(RB_STOP);
 
-        delay(400);
+        delay(motor_stop_delay);
 
         temp[0] = dist_right.raw_value();
         temp[1] = dist_left.raw_value();

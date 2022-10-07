@@ -37,6 +37,10 @@
 #define MOTOR_RR_BACKWARD FORWARD
 #endif
 
+
+extern int motor_stop_delay;
+
+
 enum CENTER_TYPE {
     CENTER_F_B,
     CENTER_L_R

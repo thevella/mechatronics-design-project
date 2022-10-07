@@ -6,6 +6,7 @@
 #include "communication.h"
 #include "sensors.h"
 #include "movement_const.h"
+#include <Servo.h>
 
 extern uint16_t robot_acceleration;
 extern uint16_t max_speed;
@@ -22,3 +23,5 @@ void manual_rotate(int);
 void setup_movement();
 
 void recenter();
+
+void grip_sand();
