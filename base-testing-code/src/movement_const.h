@@ -48,15 +48,21 @@
 
 extern int motor_stop_delay;
 
-// Type for passing if centering left to right,
-// or forward to backward
+/**
+ * @brief   Type for passing if centering left to right,
+ *          or forward to backward
+ * 
+ */
 enum CENTER_TYPE {
     CENTER_F_B,
     CENTER_L_R
 };
 
-// Type to pass robot movement, roughly
-// Does not allow arbitrary movement
+/**
+ * @brief   Type to pass robot movement, roughly
+ *          Does not allow arbitrary movement
+ * 
+ */
 enum ROBOT_DIR {
     RB_FORWARD,
     RB_BACKWARD,
@@ -67,6 +73,7 @@ enum ROBOT_DIR {
     RB_TURN_CW
 };
 
+// Only need to export if we are tuning, otherwise keep it internal
 #ifdef TUNE_PID_ROTATE
 extern uint16_t max_speed;
 #endif

@@ -7,6 +7,11 @@
 
 #include "options.h"
 
+/**
+ * @brief   Joystick object for standard usage, thus can change if local
+ *          or remote control.
+ * 
+ */
 struct joystick {
 	uint16_t y : 12;
 	uint16_t x : 12;
@@ -41,10 +46,18 @@ class dist_sensor {
 public:
 	dist_sensor(uint8_t sensor);
 
-    // Average readings with small delay to get better
-    // results and not as much fluctuation
-    // Reading too fast can result in either garbage data, or the same
-    // value multiple times
+    // 
+    /**
+     * @brief           Take an average of the sensor readings over 100ms
+     * 
+     * @return uint16_t Averaged sensor reading
+     * 
+     * @details         Average readings with small delay to get better
+     *                  results and not as much fluctuation
+     * 
+     *                  Reading too fast can result in either garbage data, or the same
+     *                  value multiple times
+     */
 	uint16_t raw_value() {
         uint64_t temp = 0;
 
@@ -56,7 +69,11 @@ public:
         return temp/10;
     };
 
-    // Linearly interpolate distance from calibration data
+    /**
+     * @brief       Linearly interpolate distance from calibration data
+     * 
+     * @return int  Distance from sensor to object (mm)
+     */
 	int read_dist() {
         uint16_t temp = this->raw_value();
         
@@ -78,8 +95,12 @@ public:
         return temp2;
 	};
 
-    // Use offsets to ignore the sensors distance into the frame, so that each sensor
-    // reads as if it starts at the edge of the frame
+    /**
+     * @brief       Use offsets to ignore the sensors distance into the frame, so that each sensor
+     *              reads as if it starts at the edge of the frame
+     * 
+     * @return int  Distance from side of robot to object (mm)
+     */
     int read_dist_wheels() {
         int temp1 = this->read_dist();
 
@@ -100,8 +121,12 @@ public:
         return temp;
     };
 
-    // Turn the sensor on or off, can be used
-    // to conserve power
+    /**
+     * @brief           Turn the sensor on or off, can be used
+     *                  to conserve power
+     * 
+     * @param turn_on   True if turning on, else turn off
+     */
 	void change_state(bool turn_on) {
 		if (turn_on) {
 			digitalWrite(this->gpio_pin, HIGH);
@@ -115,8 +140,6 @@ public:
 private:
 	uint32_t cal_distances_mm[2];
 	uint16_t cal_values[2];
-	uint64_t a;
-	uint64_t b;
 	uint8_t val_pin;
 	uint8_t gpio_pin;
     uint8_t sens_num;

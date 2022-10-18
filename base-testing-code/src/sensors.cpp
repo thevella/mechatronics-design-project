@@ -68,8 +68,13 @@ const uint16_t max_analog = 4095;
 MPU9250_DMP imu;
 #endif
 
+/**
+ * @brief Setup the sensors for use, ensure they are ready before continuing
+ * 
+ */
 void setup_sensors() {
 
+    // If using encoders, attach interrupts
     #ifdef USE_ENCODERS
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; i < 2; ++i) {
@@ -84,6 +89,7 @@ void setup_sensors() {
 
     #endif
 
+    // If using gyro, ensure that we are connected to it, and it is ready
     #ifdef USE_GYRO
     if (imu.begin() != INV_SUCCESS) {
         while (true) {
@@ -111,7 +117,11 @@ void setup_sensors() {
 }
 
 
-// Read in relevent saved data per sensor
+/**
+ * @brief           Construct a new dist sensor::dist sensor object
+ * 
+ * @param sensor    Which sensor to init, pulls info from distance_sensor array
+ */
 dist_sensor::dist_sensor(uint8_t sensor) {
     this->val_pin = distance_sensors[sensor][DIST_VAL];
     this->gpio_pin = distance_sensors[sensor][DIST_GPIO];
@@ -127,22 +137,37 @@ dist_sensor::dist_sensor(uint8_t sensor) {
     this->sens_num = sensor;
 }
 
-// Calibrate sensor using linear interpolation
+/**
+ * @brief       Receive calibration data for use in distance values
+ * 
+ * @param val1  x1 when linearly interpolating
+ * @param val2  y1 when linearly interpolating
+ */
 void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
     this->cal_values[0] = val1;
     this->cal_values[1] = val2;
-
-    this->b = (val2 * this->cal_distances_mm[1] - val1 * this->cal_distances_mm[0]) / (this->cal_distances_mm[1] - this->cal_distances_mm[0]);
-    this->a = (val1 - this->b) * cal_distances_mm[0];
 }
 
 
 #ifdef USE_GYRO
+/**
+ * @brief           Grab current rotation from sensor, must first request an update
+ * 
+ * @return float    Rotation in deg, bound to range of -180 to 180
+ */
 float get_rotation() {
     update_gyro();
     return -imu.yaw;
 }
 
+/**
+ * @brief           Add a certain amount of degrees to the passed value,
+ *                  binding to a range of -180 to 180
+ * 
+ * @param degrees   Initial value of degrees
+ * @param addition  How many degrees to add
+ * @return float    The bound value of the addition
+ */
 float add_degrees(float degrees, float addition) {
     float new_degrees = degrees + addition;
     int8_t sign = -1;
@@ -161,6 +186,10 @@ float add_degrees(float degrees, float addition) {
 }
 
 
+/**
+ * @brief Debug print the data from the gyro, taken from the library example
+ * 
+ */
 void printIMUData(void)
 {  
     // After calling dmpUpdateFifo() the ax, gx, mx, etc. values
@@ -184,6 +213,12 @@ void printIMUData(void)
     Serial.println();
 }
 
+/**
+ * @brief           Ask for new data from sensor
+ * 
+ * @return true     Gryo had new data and has computed new position
+ * @return false    Gyro has no new data, data is stale
+ */
 bool update_gyro() {
     // Check for new data in the FIFO
     if ( imu.fifoAvailable() ) {
@@ -201,8 +236,13 @@ bool update_gyro() {
 }
 #endif
 
-
+// Encoder interrupts, due to number of interrupts per
+// rotation they dont seem to be that reliable for positioning
 #ifdef USE_ENCODERS
+/**
+ * @brief Encoder interrupt, there are two per motor
+ * 
+ */
 void MOTOR_FR_ENC_0() {
     //check current state of encoder B's output and return direction
     if ((digitalPinToPort(MOTOR_FR_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_FR_ENC_PINS[1])) == LOW) {
