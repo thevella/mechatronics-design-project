@@ -184,8 +184,6 @@ void forward(int number, int16_t delay_offset, bool center, bool hard, bool on_r
     }
 }
 
-// Move forward until the sensor threshold is reached,
-// then return
 /**
  * @brief         Move forward until sensor threshold is reached
  * 
