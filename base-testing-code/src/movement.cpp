@@ -1,34 +1,44 @@
 #include "movement.h"
 #include "sensors.h"
 
+#ifdef USE_PID_ROTATE
 #include <PID_v1.h>
 #include <pid.h>
+#endif
 
+// How long to let the motors settle to ensure robot has stopped
 int motor_stop_delay = 250;
 
+// Initialize motors and servos
 Servo claw_servo;
 Servo rotate_servo;
 
-void grip_sand();
-
-
+// Motor shield is I2C, so we can give it an optional address
 Adafruit_MotorShield motorshield = Adafruit_MotorShield();
 
+// Matrixs used for arbitrary strafing in any direction,
+// not only on the orthagonal as most setups configure
 BLA::ArrayMatrix<2, 1, double> xyc = {0,0};
 BLA::ArrayMatrix<2, 1, double> speed_solved = {0, 0};
 BLA::ArrayMatrix<2, 2, double> speed_u_vec = {0.70710678118655, -0.70710678118655, 0.70710678118655, 0.70710678118655};
 auto speed_decomp = BLA::LUDecompose(speed_u_vec);
 
+// Set max speed as a reduced value
+// to limit drift from current setup
 uint16_t max_speed = 4095/2;
 int16_t cur_speed = 0;
 uint16_t robot_acceleration = 20;
 
+// Constants for calibrating the speed of the motors,
+// for some reason the encoders are not reliable.
+// Possibly due to number of interrupts from 4 motors
+// allowing some to be missed
 #define MOTOR_FR_CONSTANT (double)1.0
 #define MOTOR_FL_CONSTANT (1.07/(double)1.0)
 #define MOTOR_RL_CONSTANT (0.88/(double)1.0)
 #define MOTOR_RR_CONSTANT (0.96/(double)1.0)
 
-
+#ifdef USE_PID_ROTATE
 double pid_rot_input=80, pid_rot_output=50, pid_rot_setpoint=180;
 double pid_rot_kp=5, pid_rot_ki=0.5, pid_rot_kd=2;
 
@@ -43,23 +53,28 @@ int Output = 0;
 float deadband_delta;
 
 PID turning_pid(&pid_rot_input, &pid_rot_output, &pid_rot_setpoint, pid_rot_kp, pid_rot_ki, pid_rot_kd, DIRECT);
+#endif
 
 void calibrate_center(CENTER_TYPE);
-void recenter();
 
+// Setup for all motor devices
 void setup_movement() {
+    // Make sure that we are connected to the shield, otherwise
+    // no point continueing
     Serial.println("Adafruit Motorshield v2 - DC Motor test!");
 
-    if (!motorshield.begin(1600, &Wire1)) {         // create with the default frequency 1.6KHz
-        // if (!AFMS.begin(1000)) {  // OR with a different frequency, say 1KHz
+    if (!motorshield.begin(1600, &Wire1)) {
         Serial.println("Could not find Motor Shield. Check wiring.");
         while (1);
     }
     
     Serial.println("Motor Shield found.");
 
+    #ifdef USE_PID_ROTATE
+    #ifdef USE_GYRO
     pid_rot_setpoint = add_degrees(get_rotation(), (float)-90);
     pid_rot_input = get_rotation();
+    #endif
 
     //Setup the pid 
     turning_pid.SetMode(AUTOMATIC);
@@ -74,29 +89,147 @@ void setup_movement() {
         Serial.print("\n\n** ERROR: epid_err != EPID_ERR_NONE **\n\n");
         while (1) { ; }
     }
+    #endif
 
+    // Setup the center position and calibrate side sensors
+    // for distance
     calibrate_center(CENTER_L_R);
-    //grip_sand();
-
-    //while(true){}
 }
 
+// Move forward one square by delay
+void forward(int number, int16_t delay_offset, bool center, bool hard, bool on_right) {
+    const int move_delay = 2050;
+
+    // If moving more than 2 squares, recenter every 2 squares
+    if (number >= 2) {
+        for (int i = 0; i < number/2; ++i) {
+            // Turn motors on and wait for 2 squares,
+            // with small corrective delay
+            robot_move(RB_FORWARD);
+            delay((move_delay+delay_offset)*2);
+            robot_move(RB_STOP);
+            delay(motor_stop_delay);
+
+            // If we have been asked to center, do so
+            if (center) {
+                // If we want to hit the wall to correct
+                // orientation, do a hard center
+                // have the option of either wall if one is more
+                // hazardous
+                if (hard) {
+                    if (on_right) {
+                        robot_move(RB_RIGHT);
+                    } else {
+                        robot_move(RB_LEFT);
+                    }
+                    
+                    delay(1000);
+                    robot_move(RB_STOP);
+                    delay(motor_stop_delay);
+                }
+                // Call recenter 
+                recenter();
+            } 
+        }
+    }
+
+    // If we had an odd number, we need to finish the movement,
+    // same as above
+    if (number % 2 == 1) {
+        robot_move(RB_FORWARD);
+        delay(move_delay + delay_offset);
+        robot_move(RB_STOP);
+        delay(motor_stop_delay);
+        if (center) {
+            if (hard) {
+                if (on_right) {
+                    robot_move(RB_RIGHT);
+                } else {
+                    robot_move(RB_LEFT);
+                }
+                delay(1000);
+                robot_move(RB_STOP);
+                delay(motor_stop_delay);
+            }
+            recenter();
+        }
+    }
+}
+
+// Move forward until the sensor threshold is reached,
+// then return
+void forward_sense(int offset, int speed) {
+    robot_move(RB_FORWARD, speed);
+
+    while (dist_front.raw_value() < offset) {
+        delay(10);
+    }
+
+    robot_move(RB_STOP);
+
+    delay(motor_stop_delay);
+}
+
+// Move back into the wall to reorient 
+void backward(int time_offset) {
+    robot_move(RB_BACKWARD);
+
+    delay(700 + time_offset);
+
+    robot_move(RB_STOP);
+
+    delay(motor_stop_delay);
+}
+
+// Strafe left or right one square
+void strafe(ROBOT_DIR dir, int time_offset) {
+    robot_move(dir);
+
+    delay(2300 + time_offset);
+
+    robot_move(RB_STOP);
+
+    delay(motor_stop_delay);
+}
+
+// Turn by 90 deg either CW or anti-CW
+void turn(ROBOT_DIR dir, int time_offset) {
+    robot_rotation(dir);
+
+    delay(1800 + time_offset);
+
+    robot_move(RB_STOP);
+
+    delay(motor_stop_delay);
+}
+
+// Turn on servos and grip sand.
+// Wait until the end since the servos
+// can draw a lot of current and can crash
+// the arduino
 void grip_sand(){
 
     int temp = 15;
     int delay_time = 50;
 
+    // Write to the servo before attaching, otherwise
+    // moves to a default position.
+    // This ensures the claw is open before lowering
     claw_servo.write(0);
     claw_servo.attach(10);
     delay(300);
 
+    // Detach from servo since we have moved it,
+    // ensure enough power for second servo
     claw_servo.detach();
 
     rotate_servo.write(90);
     rotate_servo.attach(9);
     delay(300);
     
-
+    // Slowly move the arm towards a position so
+    // as to control the amount of current it draws
+    // Especially since the moment is so large on this servo
     temp = 63;
 
     if (temp < rotate_servo.read()) {
@@ -115,18 +248,23 @@ void grip_sand(){
 
     delay(300);
     
+    // Close claw
     claw_servo.write(32);
     claw_servo.attach(10);
 }
 
+// Basic recentering algorithm using the light sensors
 void recenter() {
+    // Read our calibrated distance from the wheels to
+    // what the sensor is reading
     int64_t left = dist_left.read_dist_wheels();
     int64_t right = dist_right.read_dist_wheels();
+    
+    // If the difference is too large, probably on an
+    // opening or didn't mean to center
     if (abs(left - right) > 1000) {
         return;
     }
-
-    
 
     #ifdef DEBUG_PRINT_DIST
     char out1[50];
@@ -134,10 +272,15 @@ void recenter() {
     Serial.println(out1);
     #endif
 
+    // While the difference is larger than 10mm, continue moving
+    // Small diference have a likelyhood of being short lived
+    // false readings
     while (abs(left - right) > 10) {
         left = dist_left.read_dist_wheels();
         right = dist_right.read_dist_wheels();
         Serial.println("need to move");
+        // Moving at decreased speed so as to not overshoot
+        // target
         if (left > right) {
             robot_move(RB_LEFT, max_speed/3);
             Serial.println("moving left");
@@ -153,6 +296,7 @@ void recenter() {
     delay(motor_stop_delay);
 }
 
+#ifdef USE_GYRO
 uint16_t pid_rot_calculate(uint16_t set_point) {
     epid_pid_calc(&pid_rot, set_point, get_rotation()); /* Calc PID terms values */
 
@@ -166,50 +310,24 @@ uint16_t pid_rot_calculate(uint16_t set_point) {
 
     return pid_rot_output;
 }
+#endif
 
+// Calibrate center by ramming the walls and 
+// Taking readings at the two known distances:
+// When the sensor is against the wall at almost 4cm,
+// and when the sensor is far from the wall
 void calibrate_center(CENTER_TYPE dir) {
     uint16_t temp[2];
 
-    if (dir == CENTER_F_B) {
-        // uint16_t old_dist_val = dist_right.raw_value();
-        // robot_move(RB_FORWARD);
-
-        // while (abs(dist_front.raw_value() - old_dist_val) > 20) {
-        //     old_dist_val = dist_front.raw_value();
-        //     delay(100);
-        // }
-
-        // robot_move(RB_STOP);
-
-        // temp[0] = dist_front.raw_value();
-        // temp[1] = dist_back.raw_value();
-
-        // old_dist_val = dist_back.raw_value();
-        
-        // robot_move(RB_BACKWARD);
-
-        // while (abs(dist_back.raw_value() - old_dist_val) > 2) {
-        //     old_dist_val = dist_back.raw_value();
-        //     delay(100);
-        // }
-
-        // robot_move(RB_STOP);
-
-        // dist_front.calibrate(temp[0], dist_front.raw_value());
-
-        // dist_back.calibrate(dist_back.raw_value(), temp[1]);
-
-    } else if (dir == CENTER_L_R) {
+    // Will eventually center forward and backwards
+    // so strafing is more possible
+    if (dir == CENTER_L_R) {
+        // hit the right wall and take readings
         int delay_val = 1600;
         Serial.println("centering right");
         uint16_t old_dist_val = dist_right.raw_value();
         robot_move(RB_RIGHT, max_speed/1.5);
         delay(delay_val);
-
-        // while (abs(dist_right.raw_value() - old_dist_val) > 10) {
-        //     old_dist_val = dist_right.raw_value();
-        //     delay(500);
-        // }
 
         robot_move(RB_STOP);
 
@@ -219,19 +337,15 @@ void calibrate_center(CENTER_TYPE dir) {
         temp[1] = dist_left.raw_value();
 
         old_dist_val = dist_left.raw_value();
-        
+
+        // hit left wall and take readings    
         Serial.println("centering left");
         robot_move(RB_LEFT, max_speed/1.5);
         delay(delay_val);
 
-        // while (abs(dist_left.raw_value() - old_dist_val) > 10) {
-        //     old_dist_val = dist_left.raw_value();
-        //     delay(500);
-        // }
-
         robot_move(RB_STOP);
 
-
+        // Calibrate the two sensors
         dist_right.calibrate(temp[0], dist_right.raw_value());
         #ifdef DEBUG_PRINT_DIST
         Serial.print(dist_left.raw_value());
@@ -243,7 +357,7 @@ void calibrate_center(CENTER_TYPE dir) {
     }
 }
 
-
+#ifdef USE_PID_ROTATE
 void SerialSend()
 {
     Serial.print("pid_rot_setpoint: ");
@@ -267,30 +381,21 @@ void SerialSend()
     Serial.println();
     
 }
+#endif
 
+// Low level movement commands, allows for the motors to be rearranged
+// and all movement to be updated
+
+// Each motor has a defined forward and backward direction which can be configured
+// so that the wheels can be reliably turned in the correct direction
+
+// Each mechanum wheel creates a vector, by summing these vectors, the overall
+// movement of the robot can be determined.
+
+// When all wheels are moving forward, the horizontal component is zero,
+// When each side is moving opposite eachother (ie, each side has one forward rotating and one backwards)
+// then the robot can strafe
 void robot_move(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
-    /*
-    double xc = (max_analog/(double)2.0) - x;
-    double yc = (max_analog/(double)2.0) - y;
-
-    if (abs(xc) < joystick_deadzone) {
-        xc = 0;
-    }
-
-    if (abs(yc) < joystick_deadzone) {
-        yc = 0;
-    }
-
-
-    xyc = {xc, yc};
-
-    speed_solved = BLA::LUSolve(speed_decomp, xyc);
-    
-    double speed_abs = sqrt((speed_solved(0)*speed_solved(0)) + (speed_solved(1)*speed_solved(1)));
-
-    double speed_neg = (speed_solved(0)/speed_abs) * max_speed;
-    double speed_pos = (speed_solved(1)/speed_abs) * max_speed;
-    */
     double speed_neg = speed;
     double speed_pos = speed;
 
@@ -327,13 +432,15 @@ void robot_move(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
         motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
     }
     
-
+    // Set adjusted speeds and round to an integer 
     motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_FL_CONSTANT)) );
     motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_RL_CONSTANT)) );
     motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_RR_CONSTANT)) );
     motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_FR_CONSTANT)) );
 }
 
+// High level rotation, same as above but for rotation
+// Uses tank tread type rotation
 void robot_rotation(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
 
     if (direction == RB_TURN_CC) {
@@ -360,6 +467,7 @@ void robot_rotation(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) 
     motorshield.getMotor(MOTOR_FR)->setSpeedFine( round(speed * MOTOR_FR_CONSTANT) );
 }
 
+#ifdef USE_GYRO
 void robot_rotation_by_deg (ROBOT_DIR direction, uint16_t degrees, uint16_t speed, uint16_t acceleration) {
     uint16_t final_degrees = (round(get_rotation()) + degrees)%360;
 
@@ -368,7 +476,11 @@ void robot_rotation_by_deg (ROBOT_DIR direction, uint16_t degrees, uint16_t spee
     }
 
 }
+#endif
 
+// Manual movement commands, allow for arbitrary strafing by varying the relative
+// speed of the wheels. This will eventually be the basis for our recentering while
+// moving
 void manual_move(uint16_t x, uint16_t y) {
     double xc = (max_analog/(double)2.0) - x;
     double yc = (max_analog/(double)2.0) - y;
@@ -382,6 +494,9 @@ void manual_move(uint16_t x, uint16_t y) {
     }
 
 
+    // By taking the unit vector of the input, then solving against
+    // the wheel vectors defined in the preamble, we are able to arbitrarily
+    // strafe
     xyc = {xc, yc};
 
     speed_solved = BLA::LUSolve(speed_decomp, xyc);
@@ -415,6 +530,7 @@ void manual_move(uint16_t x, uint16_t y) {
     motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos)) );
 }
 
+// Mostly same as robot_rotate, but for manual control
 void manual_rotate(int x) {
     double xc = (max_analog/2) - x;
 

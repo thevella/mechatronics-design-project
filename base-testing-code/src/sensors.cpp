@@ -1,11 +1,13 @@
 #include "sensors.h"
 #define reverse_sensor
 
+// The pins used by the sensors in each location
 #define DIST_LEFT  0
 #define DIST_RIGHT 1
 #define DIST_FRONT 2
 #define DIST_BACK  3
 
+// Encoders proved unreliable, we dont need them
 #ifdef USE_ENCODERS
 #if MOTOR_FR_FORWARD == FORWARD
 const uint8_t MOTOR_FR_ENC_PINS[] = {36, 38};
@@ -35,39 +37,38 @@ const uint8_t MOTOR_ENC_PINS[4][2] = {*MOTOR_FR_ENC_PINS, *MOTOR_FL_ENC_PINS, *M
 volatile struct encoders enc = {0, 0, 0, 0};
 #endif
 
-// Distance Sensors
+// Distance Sensors definition
 const uint8_t distance_sensors[][2] = {{A0, 13}, {A1, 13}, {A2, 13}, {A3, 13}};
 const uint8_t num_dist_sensors = 3;
+// Holder for calibration values, if any defined
 uint16_t distance_sensor_cal_values[][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
 
+// Offsets for calculating distance to wall from edge of robot
 uint16_t robot_width_mm = 155;
 uint16_t wall_to_wall_width_mm = 175+10*2-3;
 
-//2410 54
-//1954 120
-uint64_t distance_10nm_vals[][2] = {{(43)*1, (wall_to_wall_width_mm-robot_width_mm+43)*1}, 
+// distances in mm for calibration
+uint64_t distance_mm_vals[][2] = {{(43)*1, (wall_to_wall_width_mm-robot_width_mm+43)*1}, 
                                     {(45)*1, (wall_to_wall_width_mm-robot_width_mm+45)*1}, 
                                     {(54)*1, (120+54)*1}};
 
+// Initialize sensors
 dist_sensor dist_left(DIST_LEFT);
 dist_sensor dist_right(DIST_RIGHT);
 dist_sensor dist_front(DIST_FRONT);
 // dist_sensor dist_back(DIST_BACK);
 
 
+// Ignore small section at middle of joystick where readings
+// are often fluctuating
 const uint16_t joystick_deadzone = 100;
 const uint16_t max_analog = 4095;
 
+#ifdef USE_GYRO
 MPU9250_DMP imu;
-
+#endif
 
 void setup_sensors() {
-    // for (int i = 0; i < num_dist_sensors; ++i) {
-    //     pinMode(distance_sensors[i][DIST_VAL], INPUT);
-    //     pinMode(distance_sensors[i][DIST_GPIO], OUTPUT);
-    //     digitalWrite(distance_sensors[i][DIST_GPIO], HIGH);
-    // }
-    // Startup all pins and UART
 
     #ifdef USE_ENCODERS
     for (int i = 0; i < 4; ++i) {
@@ -98,6 +99,7 @@ void setup_sensors() {
                DMP_FEATURE_GYRO_CAL, // Use gyro calibration
                10); // Set DMP FIFO rate to 10 Hz
     
+    // If using the gyro, have to delay to allow gyro to start up, otherwise it gets garbage readings
     delay(10000);
 
     for (int i = 0; i < 10; ++i) {
@@ -105,39 +107,11 @@ void setup_sensors() {
     }
 
     #endif
-    //2410 54
-    //1954 120
-
-    dist_front.calibrate(2410, 1954);
-
-    // while(true) {
-    //     // uint64_t avg = 0;
-
-    //     // for (int i = 0 ; i < 10; ++i) {
-    //     //     avg += dist_front.raw_value();
-    //     //     delay(10);
-    //     // }
-
-    //     // avg = avg/10;
-
-    //     // char out1[50];
-
-    //     // sprintf(out1, "%lli", avg);
-
-    //     // Serial.println(out1);
-
-    //     Serial.println(dist_front.read_dist_wheels());
-    //     delay(500);
-        
-    // }
-
-    
-
 
 }
 
 
-
+// Read in relevent saved data per sensor
 dist_sensor::dist_sensor(uint8_t sensor) {
     this->val_pin = distance_sensors[sensor][DIST_VAL];
     this->gpio_pin = distance_sensors[sensor][DIST_GPIO];
@@ -147,20 +121,23 @@ dist_sensor::dist_sensor(uint8_t sensor) {
     digitalWrite(this->gpio_pin, HIGH);
 
     for (int i = 0; i < 2; ++i) {
-        this->cal_distances_10nm[i] = distance_10nm_vals[sensor][i];
+        this->cal_distances_mm[i] = distance_mm_vals[sensor][i];
         this->cal_values[i] = 0;
     }
     this->sens_num = sensor;
 }
 
+// Calibrate sensor using linear interpolation
 void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
     this->cal_values[0] = val1;
     this->cal_values[1] = val2;
 
-    this->b = (val2 * this->cal_distances_10nm[1] - val1 * this->cal_distances_10nm[0]) / (this->cal_distances_10nm[1] - this->cal_distances_10nm[0]);
-    this->a = (val1 - this->b) * cal_distances_10nm[0];
+    this->b = (val2 * this->cal_distances_mm[1] - val1 * this->cal_distances_mm[0]) / (this->cal_distances_mm[1] - this->cal_distances_mm[0]);
+    this->a = (val1 - this->b) * cal_distances_mm[0];
 }
 
+
+#ifdef USE_GYRO
 float get_rotation() {
     update_gyro();
     return -imu.yaw;
@@ -182,6 +159,7 @@ float add_degrees(float degrees, float addition) {
 
     return new_degrees*sign;
 }
+
 
 void printIMUData(void)
 {  
@@ -221,6 +199,7 @@ bool update_gyro() {
     }
     return false;
 }
+#endif
 
 
 #ifdef USE_ENCODERS
