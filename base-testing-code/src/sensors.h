@@ -1,10 +1,17 @@
 #pragma once
 #include <Arduino.h>
 
+#ifdef USE_GYRO
 #include <SparkFunMPU9250-DMP.h>
+#endif
 
 #include "options.h"
 
+/**
+ * @brief   Joystick object for standard usage, thus can change if local
+ *          or remote control.
+ * 
+ */
 struct joystick {
 	uint16_t y : 12;
 	uint16_t x : 12;
@@ -39,6 +46,18 @@ class dist_sensor {
 public:
 	dist_sensor(uint8_t sensor);
 
+    // 
+    /**
+     * @brief           Take an average of the sensor readings over 100ms
+     * 
+     * @return uint16_t Averaged sensor reading
+     * 
+     * @details         Average readings with small delay to get better
+     *                  results and not as much fluctuation
+     * 
+     *                  Reading too fast can result in either garbage data, or the same
+     *                  value multiple times
+     */
 	uint16_t raw_value() {
         uint64_t temp = 0;
 
@@ -48,16 +67,18 @@ public:
         }
 
         return temp/10;
-        // char out1[50] = "\0";
-        // sprintf(out1, "RAW %i: %i", this->sens_num, analogRead(this->val_pin));
-        // Serial.println(out1); 
-        //return analogRead(this->val_pin);
     };
+
+    /**
+     * @brief       Linearly interpolate distance from calibration data
+     * 
+     * @return int  Distance from sensor to object (mm)
+     */
 	int read_dist() {
         uint16_t temp = this->raw_value();
-        //int temp2 = (int)round((this->cal_distances_10nm[0]*(this->cal_values[0] - temp)+this->cal_distances_10nm[1]*(temp - this->cal_values[1]))/((double)(this->cal_values[1] - this->cal_values[0])));
-        int temp2 = round(this->cal_distances_10nm[0]+(((temp-this->cal_values[0])/((double)(this->cal_values[1] - this->cal_values[0])))*(this->cal_distances_10nm[1] - this->cal_distances_10nm[0])));
-        //double temp3 = (double)this->a / (temp - this->b);
+        
+        int temp2 = round(this->cal_distances_mm[0]+(((temp-this->cal_values[0])/((double)(this->cal_values[1] - this->cal_values[0])))*(this->cal_distances_mm[1] - this->cal_distances_mm[0])));
+
 
         #ifdef DEBUG_PRINT_DIST
         char out1[50] = "\0";
@@ -72,9 +93,14 @@ public:
         #endif
 
         return temp2;
-		//return round((double)this->a / (temp - this->b));
 	};
 
+    /**
+     * @brief       Use offsets to ignore the sensors distance into the frame, so that each sensor
+     *              reads as if it starts at the edge of the frame
+     * 
+     * @return int  Distance from side of robot to object (mm)
+     */
     int read_dist_wheels() {
         int temp1 = this->read_dist();
 
@@ -84,7 +110,7 @@ public:
         Serial.println(out1);
         #endif
 
-        int temp = temp1 - this->cal_distances_10nm[0];
+        int temp = temp1 - this->cal_distances_mm[0];
         
         #ifdef DEBUG_PRINT_DIST
         sprintf(out1, "DIST %i: %i", this->sens_num, temp);
@@ -95,6 +121,12 @@ public:
         return temp;
     };
 
+    /**
+     * @brief           Turn the sensor on or off, can be used
+     *                  to conserve power
+     * 
+     * @param turn_on   True if turning on, else turn off
+     */
 	void change_state(bool turn_on) {
 		if (turn_on) {
 			digitalWrite(this->gpio_pin, HIGH);
@@ -106,10 +138,8 @@ public:
 	void calibrate(uint16_t val1, uint16_t val2);
 
 private:
-	uint32_t cal_distances_10nm[2];
+	uint32_t cal_distances_mm[2];
 	uint16_t cal_values[2];
-	uint64_t a;
-	uint64_t b;
 	uint8_t val_pin;
 	uint8_t gpio_pin;
     uint8_t sens_num;
@@ -138,7 +168,8 @@ void MOTOR_RR_ENC_1();
 
 void setup_sensors();
 
-
+#ifdef USE_GYRO
 float add_degrees(float, float);
 bool update_gyro();
 float get_rotation();
+#endif

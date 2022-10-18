@@ -25,3 +25,15 @@ void setup_movement();
 void recenter();
 
 void grip_sand();
+
+void forward(int , int16_t delay_offset = 0, bool center = false, bool hard = false, bool on_right = true);
+
+void forward_sense(int , int speed = max_speed);
+
+void backward(int time_offset = 0);
+
+void strafe(ROBOT_DIR , int time_offset = 0);
+
+
+void turn(ROBOT_DIR , int time_offset = 0);
+
