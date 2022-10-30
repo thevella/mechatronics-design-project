@@ -46,9 +46,9 @@ uint16_t robot_acceleration = 20;
 // Possibly due to number of interrupts from 4 motors
 // allowing some to be missed
 #define MOTOR_FR_CONSTANT (double)1.0
-#define MOTOR_FL_CONSTANT (1.07/(double)1.0)
-#define MOTOR_RL_CONSTANT (0.88/(double)1.0)
-#define MOTOR_RR_CONSTANT (0.96/(double)1.0)
+#define MOTOR_FL_CONSTANT (1.17/(double)1.0)
+#define MOTOR_RL_CONSTANT (1.0/(double)1.0)
+#define MOTOR_RR_CONSTANT (1.08/(double)1.0)
 
 #ifdef USE_PID_ROTATE
 // Variables for PID use
@@ -110,6 +110,11 @@ void setup_movement() {
         while (1) { ; }
     }
     #endif
+
+    robot_move(RB_FORWARD);
+    while(true) {
+
+    }
 
     // Setup the center position and calibrate side sensors
     // for distance
@@ -351,6 +356,89 @@ void recenter() {
 
 #ifdef USE_PID_ROTATE
 #ifdef USE_GYRO
+
+void robot_move_(ROBOT_DIR direction, int16_t heading_correction = 0, int16_t placement_correction = 0, uint16_t speed = max_speed) {
+    double speed_neg = speed;
+    double speed_pos = speed;
+
+    int16_t head_corr[4];
+
+    for (int i = 0; i < 4; ++i) {
+        head_corr[i] = heading_correction;
+        if (i == MOTOR_FR || i == MOTOR_RR) {
+            head_corr[i] *= -1;
+        }
+    }
+
+    if (direction == RB_FORWARD) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
+    } else if (direction == RB_BACKWARD) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
+        for (int i = 0; i < 4; ++i) {
+            head_corr[i] *= -1;
+        }
+    } else if (direction == RB_STOP) {
+        motorshield.getMotor(MOTOR_FL)->run(RELEASE);
+        motorshield.getMotor(MOTOR_RR)->run(RELEASE);
+        motorshield.getMotor(MOTOR_RL)->run(RELEASE);
+        motorshield.getMotor(MOTOR_FR)->run(RELEASE);
+    }
+
+    if (direction == RB_LEFT) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
+
+        head_corr[MOTOR_FL] *= -1;
+        head_corr[MOTOR_RR] *= -1;
+
+    } else if (direction == RB_RIGHT) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
+    }
+    
+    // Set adjusted speeds and round to an integer 
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_FL_CONSTANT)+heading_correction) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_RL_CONSTANT)+heading_correction) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_RR_CONSTANT)-heading_correction) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_FR_CONSTANT)-heading_correction) );
+}
+
+void robot_rotation_(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
+
+    if (direction == RB_TURN_CC) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
+    } else if (direction == RB_TURN_CW) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
+    } else if (direction == RB_STOP) {
+        motorshield.getMotor(MOTOR_FL)->run(RELEASE);
+        motorshield.getMotor(MOTOR_RL)->run(RELEASE);
+        motorshield.getMotor(MOTOR_RR)->run(RELEASE);
+        motorshield.getMotor(MOTOR_FR)->run(RELEASE);
+    }
+    
+
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( round(speed * MOTOR_FL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( round(speed * MOTOR_RL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( round(speed * MOTOR_RR_CONSTANT) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( round(speed * MOTOR_FR_CONSTANT) );
+}
+
 /**
  * @brief            Calculate next PID output
  * 

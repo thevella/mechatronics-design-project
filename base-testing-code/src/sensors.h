@@ -1,9 +1,9 @@
 #pragma once
 #include <Arduino.h>
 
-#ifdef USE_GYRO
+
 #include <SparkFunMPU9250-DMP.h>
-#endif
+
 
 #include "options.h"
 
