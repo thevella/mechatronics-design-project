@@ -157,7 +157,7 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
  */
 float get_rotation() {
     update_gyro();
-    return -imu.yaw;
+    return -imu.pitch;
 }
 
 /**
@@ -228,7 +228,7 @@ bool update_gyro() {
             // computeEulerAngles can be used -- after updating the
             // quaternion values -- to estimate roll, pitch, and yaw
             imu.computeEulerAngles(true);
-            printIMUData();
+            //printIMUData();
             return true;
         } 
     }

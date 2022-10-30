@@ -46,9 +46,9 @@ uint16_t robot_acceleration = 20;
 // Possibly due to number of interrupts from 4 motors
 // allowing some to be missed
 #define MOTOR_FR_CONSTANT (double)1.0
-#define MOTOR_FL_CONSTANT (1.17/(double)1.0)
-#define MOTOR_RL_CONSTANT (1.0/(double)1.0)
-#define MOTOR_RR_CONSTANT (1.08/(double)1.0)
+#define MOTOR_FL_CONSTANT ((double)1.00*1.03)
+#define MOTOR_RL_CONSTANT ((double)1.04*1.03)
+#define MOTOR_RR_CONSTANT ((double)1.06)
 
 #ifdef USE_PID_ROTATE
 // Variables for PID use
@@ -111,14 +111,10 @@ void setup_movement() {
     }
     #endif
 
-    robot_move(RB_FORWARD);
-    while(true) {
-
-    }
-
+    
     // Setup the center position and calibrate side sensors
     // for distance
-    calibrate_center(CENTER_L_R);
+    //calibrate_center(CENTER_L_R);
 }
 
 /**

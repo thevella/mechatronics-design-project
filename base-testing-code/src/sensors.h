@@ -1,9 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-
 #include <SparkFunMPU9250-DMP.h>
-
 
 #include "options.h"
 
