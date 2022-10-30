@@ -8,9 +8,9 @@
 // Need to define each wheel, location matters
 // more than usual due to having to sum vectors
 #define MOTOR_FR 1
-#define MOTOR_FL 2
+#define MOTOR_FL 4
 #define MOTOR_RL 3
-#define MOTOR_RR 4
+#define MOTOR_RR 2
 
 // Define how the wires are hooked up, easier than
 // changing the wires every time

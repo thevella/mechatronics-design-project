@@ -25,6 +25,24 @@ void setup() {
     setup_sensors();
     setup_movement();
 
+
+    int rot = get_rotation();
+
+    while(true) {
+        manual_move(4096/2-1000,4096/2+1000);
+        delay(5000);
+        while(abs(get_rotation() + 110) > 2) {
+            robot_rotation(RB_TURN_CW);
+            delay(100);
+        }
+        robot_move(RB_STOP);
+
+        manual_move(4096/2-1000,4096/2+1000);
+        delay(500);
+        robot_move(RB_STOP);
+
+        Serial.println(get_rotation());
+    }
     // Only pull in lora if we want to use it, otherwise
     // will complain and cause slowdowns if unplugged
     #ifdef USE_LORA
