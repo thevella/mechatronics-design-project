@@ -1,5 +1,6 @@
 #include "movement.h"
 #include "sensors.h"
+#include "scheduling.h"
 
 #ifdef USE_PID_ROTATE
 #include <PID_v1.h>
@@ -72,6 +73,47 @@ PID turning_pid(&pid_rot_input, &pid_rot_output, &pid_rot_setpoint, pid_rot_kp, 
 #endif
 
 void calibrate_center(CENTER_TYPE);
+
+void next_maze_callback();
+
+Task tRB_maze(10, TASK_FOREVER, &next_maze_callback, &ts, false);
+
+void correct_rotation();
+
+Task tRB_rotation(100, TASK_FOREVER, &correct_rotation, &ts, false);
+
+void correct_position();
+
+Task tRB_position(100, TASK_FOREVER, &correct_position, &ts, false);
+
+void task_forward() {
+
+}
+
+void task_turn_L() {
+
+}
+
+void task_turn_R() {
+
+}
+
+void task_strafe_L() {
+
+}
+
+void task_strafe_R() {
+
+}
+
+void task_backward() {
+
+}
+
+void task_grab_sand() {
+
+}
+
 
 /**
  * @brief Setup for all motor devices

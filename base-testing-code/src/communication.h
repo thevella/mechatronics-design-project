@@ -14,10 +14,12 @@
 #define DESTINATION_ADDL 3
 #include <LoRa_E220.h>
 
+#define STR_RB_START_STOP "0"
+
 extern struct joystick joystick_com;
 
-void check_message();
+void check_message_lora();
 
-void printParameters(struct Configuration configuration);
+void printParametersLora(struct Configuration configuration);
 void printModuleInformation(struct ModuleInformation moduleInformation);
 void lora_setup();

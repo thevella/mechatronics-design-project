@@ -11,6 +11,10 @@
 extern uint16_t robot_acceleration;
 extern uint16_t max_speed;
 
+extern Task tRB_maze;
+extern Task tRB_rotation;
+extern Task tRB_position;
+
 void robot_move(ROBOT_DIR, uint16_t speed = max_speed, uint16_t acceleration = robot_acceleration);
 
 void robot_rotation(ROBOT_DIR, uint16_t speed = max_speed, uint16_t acceleration = robot_acceleration);

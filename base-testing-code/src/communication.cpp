@@ -1,4 +1,8 @@
 #include "communication.h"
+#include "scheduling.h"
+#include "ST25DVSensor.h"
+
+extern Task tRB_maze;
 
 // LORA modules can be used for communication in adverse environments
 // due to their low wavelength and simple communications protocol
@@ -19,9 +23,35 @@ bool old_button = false;
 
 char output[50];
 
+void nfc_read_call();
+
+Task tNFC_read(500, TASK_FOREVER, &nfc_read_call, &ts, false);
+
+String uri;
+
+void nfc_setup() {
+	st25dv.begin(A1, A2, &Wire);
+}
+
+void nfc_read_call() {
+	st25dv.readURI(&uri);
+
+	if (strcmp(uri.c_str(), STR_RB_START_STOP) == 0) {
+		if (tRB_maze.isEnabled()) {
+			tRB_maze.disable();
+		} else {
+			tRB_maze.enable();
+		}
+	} else {
+		;
+	}
+}
+
+
+
 // Check if message available and convert data from struct to 
 // usable structure
-void check_message() {
+void check_message_lora() {
     // If something available
     if (e220ttl.available()>1) {
 	    // read the String message
@@ -88,7 +118,7 @@ void lora_setup() {
 	Serial.println(c.status.getResponseDescription());
 	Serial.println(c.status.code);
 
-	printParameters(configuration);
+	printParametersLora(configuration);
 
 
 //	----------------------- DEFAULT TRANSPARENT -----------------------
@@ -129,12 +159,12 @@ void lora_setup() {
 	Serial.println(c.status.getResponseDescription());
 	Serial.println(c.status.code);
 
-	printParameters(configuration);
+	printParametersLora(configuration);
 	c.close();
 }
 
 // Print current config
-void printParameters(struct Configuration configuration) {
+void printParametersLora(struct Configuration configuration) {
 	Serial.println("----------------------------------------");
 
 	Serial.print(F("HEAD : "));  Serial.print(configuration.COMMAND, HEX);Serial.print(" ");Serial.print(configuration.STARTING_ADDRESS, HEX);Serial.print(" ");Serial.println(configuration.LENGHT, HEX);
