@@ -2,8 +2,6 @@
 #include "scheduling.h"
 #include "ST25DVSensor.h"
 
-extern Task tRB_maze;
-
 // LORA modules can be used for communication in adverse environments
 // due to their low wavelength and simple communications protocol
 // Additionally, because of this, LORA is fairly simple to implement
@@ -23,28 +21,32 @@ bool old_button = false;
 
 char output[50];
 
-void nfc_read_call();
-
-Task tNFC_read(500, TASK_FOREVER, &nfc_read_call, &ts, false);
+EXTERN_COROUTINE(navigate_maze);
 
 String uri;
 
-void nfc_setup() {
-	st25dv.begin(A1, A2, &Wire);
+COROUTINE(nfc_read_call) {
+	COROUTINE_LOOP() {
+		st25dv.readURI(&uri);
+
+		if (strcmp(uri.c_str(), STR_RB_START_STOP) == 0) {
+			if (!navigate_maze.isSuspended()) {
+				navigate_maze.suspend();
+			} else {
+				navigate_maze.resume();
+			}
+		} else {
+			;
+		}
+		COROUTINE_DELAY(50);
+	}
+	
 }
 
-void nfc_read_call() {
-	st25dv.readURI(&uri);
 
-	if (strcmp(uri.c_str(), STR_RB_START_STOP) == 0) {
-		if (tRB_maze.isEnabled()) {
-			tRB_maze.disable();
-		} else {
-			tRB_maze.enable();
-		}
-	} else {
-		;
-	}
+
+void nfc_setup() {
+	st25dv.begin(A1, A2, &Wire);
 }
 
 

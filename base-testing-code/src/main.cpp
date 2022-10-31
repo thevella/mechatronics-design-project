@@ -5,12 +5,11 @@
 #include <BasicLinearAlgebra.h>
 #include <Wire.h>
 
-
-
-
-
 bool do_rotate = false;
 
+
+EXTERN_COROUTINE(navigate_maze);
+EXTERN_COROUTINE(nfc_read_call);
 
 void setup() {
     // Small delay so we can clear the wires before it starts
@@ -50,138 +49,15 @@ void setup() {
     #ifdef USE_LORA
     lora_setup();
     #endif
+
+    nfc_setup();
+    
 }
 
 
 
 void loop() {
-    // How far off the wall as read by the sensor to stop
-    int sensor_offset = 2570;
-
-    // Begin movement
-    recenter();
-
-    // Stay further from the wall,
-    // avoid hitting the posts
-    forward_sense(sensor_offset+5);
-
-    turn(RB_TURN_CW);
-
-    // Correction strafe
-    strafe(RB_LEFT, -2200);
-
-    // Correct angle off wall
-    backward();
-
-    // Move forward one square and center
-    forward(1, 150, true, true);
-
-    forward_sense(sensor_offset);
-
-    // Increase strafing slightly to adjust for
-    // clearing the post
-    strafe(RB_RIGHT, 50);
-
-    backward();
-
-    forward_sense(sensor_offset);
-
-    strafe(RB_LEFT, 75);
-
-    backward();
-
-    // Ramp
-
-    // Go close to full speed since not worried about drift
-    // on the ramp
-    forward_sense(sensor_offset, max_speed*1.7);
-
-    turn(RB_TURN_CW);
-
-    backward();
-
-    forward_sense(sensor_offset, max_speed*1.7);
-
-    turn(RB_TURN_CW);
-
-    forward_sense(sensor_offset, max_speed*1.7);
-
-    turn(RB_TURN_CW);
-
-    forward(2, 600, true, true, false);
-
-    forward_sense(sensor_offset);
-
-    turn(RB_TURN_CW);
-
-    backward();
-
-    // Correction strafe
-    strafe(RB_LEFT, -2000);
-
-    forward_sense(sensor_offset);
-
-    // Bottom
-
-    turn(RB_TURN_CW, 200);
-
-    backward();
-
-    forward(1, 150, true, true);
-
-    forward_sense(sensor_offset+5);
-
-    turn(RB_TURN_CC);
-
-    backward();
-
-    // Long hallway, have to correct twice
-    forward(1, 150, true, true);
-
-    forward(2, 100, true, true);
-
-    forward_sense(sensor_offset);
-
-    turn(RB_TURN_CC, 50);
-
-    strafe(RB_RIGHT, -2150);
-
-    backward();
-
-    forward(1, 150);
-
-    turn(RB_TURN_CC);
-
-    strafe(RB_RIGHT, -2250);
-
-    backward();
-
-    forward(1, 150, true, true);
-
-    forward_sense(sensor_offset);
-
-    turn(RB_TURN_CW);
-
-    backward();
-
-    forward_sense(sensor_offset+75);
-
-    turn(RB_TURN_CC);
-
-    strafe(RB_RIGHT, -2100);
-
-    backward();
-
-    forward(1, 150, true, true);
-
-    // Grab soil
-    grip_sand();
-
-    backward();
-
-    // End of sequence, idle
-    while(true) {}
-
+    ace_routine::CoroutineScheduler::loop();
 }
 
 
