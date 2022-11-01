@@ -48,6 +48,16 @@
 
 extern int motor_stop_delay;
 
+enum TASK_COMMANDS {
+    T_FORWARD,
+    T_BACKWARD,
+    T_STRAFE_L,
+    T_STRAFE_R,
+    T_TURN_CW,
+    T_TURN_CCW,
+    T_GRAB_SAND
+};
+
 /**
  * @brief   Type for passing if centering left to right,
  *          or forward to backward

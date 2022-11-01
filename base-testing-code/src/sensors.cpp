@@ -1,4 +1,6 @@
 #include "sensors.h"
+#include <AceRoutine.h>
+
 #define reverse_sensor
 
 // The pins used by the sensors in each location
@@ -59,6 +61,9 @@ dist_sensor dist_front(DIST_FRONT);
 // dist_sensor dist_back(DIST_BACK);
 
 
+VL53L4CD TOF_left(&Wire, 52);
+VL53L4CD TOF_front(&Wire, 53);
+
 // Ignore small section at middle of joystick where readings
 // are often fluctuating
 const uint16_t joystick_deadzone = 100;
@@ -67,6 +72,8 @@ const uint16_t max_analog = 4095;
 #ifdef USE_GYRO
 MPU9250_DMP imu;
 #endif
+
+int target_deg = 0;
 
 /**
  * @brief Setup the sensors for use, ensure they are ready before continuing
@@ -114,6 +121,79 @@ void setup_sensors() {
 
     #endif
 
+
+
+    TOF_left.begin();
+    TOF_left.VL53L4CD_Off();
+
+    TOF_front.begin();
+    TOF_front.InitSensor();
+    TOF_front.VL53L4CD_SetI2CAddress(0x53);
+    TOF_front.VL53L4CD_SetRangeTiming(150, 50);
+    TOF_front.VL53L4CD_StartRanging();
+
+    TOF_left.VL53L4CD_On();
+    TOF_left.InitSensor();
+    TOF_left.VL53L4CD_SetRangeTiming(150, 50);
+    TOF_left.VL53L4CD_StartRanging();
+
+    while(true) {
+        int dist = 0;
+
+        
+        while (!read_TOF_front(&dist));
+
+
+        Serial.println(dist);
+        
+    }
+    
+
+
+
+}
+
+
+bool read_tof(VL53L4CD* sensor, int* output, int* status_out = nullptr) {
+    uint8_t NewDataReady = 0;
+    VL53L4CD_Result_t results;
+    uint8_t status;
+
+    
+    status = sensor->VL53L4CD_CheckForDataReady(&NewDataReady);
+    
+    if (status_out != nullptr) {
+        *status_out = status;
+    }
+
+    if (!NewDataReady) {
+        
+        
+        return false;
+    }
+
+    if ((!status) && (NewDataReady != 0)) {
+        // (Mandatory) Clear HW interrupt to restart measurements
+        sensor->VL53L4CD_ClearInterrupt();
+
+        // Read measured distance. RangeStatus = 0 means valid data
+        sensor->VL53L4CD_GetResult(&results);
+
+        if (results.range_status != 0) {
+            return false;
+        }
+
+        *output = results.distance_mm;
+        return true;
+    }
+}
+
+bool read_TOF_front(int* output, int* status) {
+    return read_tof(&TOF_front, output, status);
+}
+
+bool read_TOF_left(int* output, int* status) {
+    return read_tof(&TOF_left, output, status);
 }
 
 

@@ -1,5 +1,6 @@
 #include "movement.h"
 #include "sensors.h"
+#include <ArxContainer.h>
 
 #ifdef USE_PID_ROTATE
 #include <PID_v1.h>
@@ -75,13 +76,69 @@ void calibrate_center(CENTER_TYPE);
 
 using namespace ace_routine;
 
-int command[][2] = {{}, NULL};
+std::vector<std::vector<int>> commands {{1}};
 
 
-COROUTINE(navigate_maze){
+
+
+inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
+    int output = 0;
+    int target = 0;
+    
+    
+    if (dir == RB_FORWARD) {
+        read_TOF_front(&output);
+
+
+
+        do {
+            robot_move_(dir, 0, 0);
+            read_TOF_front(&output);
+        } while (abs(output - target) > 3);
+        robot_move_(RB_STOP);
+    }
+    COROUTINE_DELAY(50);
+}
+
+inline int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
+
+}
+
+inline int MovementCoroutine::task_rotate(ROBOT_DIR dir, int deg) {
+
+}
+
+inline int MovementCoroutine::task_grab_sand() {
+
+}
+
+COROUTINE(MovementCoroutine, navigate_maze){
     COROUTINE_LOOP() {
-        for (int i = 0; command[i] != NULL; ++i) {
-            
+        int output = 0;
+        for (auto command: commands) {
+            switch(command.at(0)) {
+                case(T_FORWARD):
+                    this->task_move(RB_FORWARD, command.at(1));
+                    break;
+                case(T_BACKWARD):
+                    this->task_move(RB_BACKWARD, command.at(1));
+                    break;
+                case(T_STRAFE_L):
+                    this->task_strafe(RB_LEFT, command.at(1));
+                    break;
+                case(T_STRAFE_R):
+                    this->task_strafe(RB_RIGHT, command.at(1));
+                    break;
+                case(T_TURN_CW):
+                    this->task_rotate(RB_TURN_CW, command.at(1));
+                    break;
+                case(T_TURN_CCW):
+                    this->task_rotate(RB_TURN_CC, command.at(1));
+                    break;
+                case(T_GRAB_SAND):
+                    this->task_grab_sand();
+                    break;
+            }
         }
     }
 }

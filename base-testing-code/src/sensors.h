@@ -2,8 +2,10 @@
 #include <Arduino.h>
 
 #include <SparkFunMPU9250-DMP.h>
+#include <vl53l4cd_class.h>
 
 #include "options.h"
+
 
 /**
  * @brief   Joystick object for standard usage, thus can change if local
@@ -37,6 +39,9 @@ extern volatile struct encoders enc;
 #define DIST_GPIO  1
 
 
+extern int target_deg;
+bool read_TOF_front(int* output, int* status = nullptr);
+bool read_TOF_left(int* output, int* status = nullptr);
 
 
 class dist_sensor {

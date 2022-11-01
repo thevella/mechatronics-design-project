@@ -35,6 +35,7 @@ COROUTINE(nfc_read_call) {
 			} else {
 				navigate_maze.resume();
 			}
+			st25dv.writeURI("", "NULL", "");
 		} else {
 			;
 		}

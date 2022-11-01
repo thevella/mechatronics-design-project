@@ -7,6 +7,7 @@
 #include "sensors.h"
 #include "movement_const.h"
 #include <Servo.h>
+#include <ArxContainer.h>
 
 #include "scheduling.h"
 
@@ -38,4 +39,14 @@ void strafe(ROBOT_DIR , int time_offset = 0);
 
 
 void turn(ROBOT_DIR , int time_offset = 0);
+
+
+
+class MovementCoroutine: public ace_routine::Coroutine {
+public:
+    int task_move(ROBOT_DIR dir, int squares);
+    int task_strafe(ROBOT_DIR dir, int squares);
+    int task_rotate(ROBOT_DIR dir, int deg);
+    int task_grab_sand();
+};
 
