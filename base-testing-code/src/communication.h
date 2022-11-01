@@ -18,6 +18,8 @@
 
 extern struct joystick joystick_com;
 
+
+void nfc_setup();
 void check_message_lora();
 
 void printParametersLora(struct Configuration configuration);

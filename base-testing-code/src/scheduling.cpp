@@ -1,7 +1,8 @@
 #include "scheduling.h"
 
-Scheduler ts;
+
 
 void scheduling_setup() {
-
+    ace_routine::CoroutineScheduler::setup();
 }
+
