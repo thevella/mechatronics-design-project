@@ -47,8 +47,8 @@ uint16_t robot_acceleration = 20;
 // Possibly due to number of interrupts from 4 motors
 // allowing some to be missed
 #define MOTOR_FR_CONSTANT (double)1.0
-#define MOTOR_FL_CONSTANT ((double)1.00*1.03)
-#define MOTOR_RL_CONSTANT ((double)1.04*1.03)
+#define MOTOR_FL_CONSTANT ((double)1.00)
+#define MOTOR_RL_CONSTANT ((double)1.04)
 #define MOTOR_RR_CONSTANT ((double)1.06)
 
 #ifdef USE_PID_ROTATE
@@ -76,7 +76,7 @@ void calibrate_center(CENTER_TYPE);
 
 using namespace ace_routine;
 
-std::vector<std::vector<int>> commands {{1}};
+std::vector<std::vector<int>> commands {{T_FORWARD, 1}};
 
 
 
@@ -85,23 +85,54 @@ inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
     int output = 0;
     int target = 0;
     
-    
+    read_TOF_front(&output);
+
     if (dir == RB_FORWARD) {
-        read_TOF_front(&output);
-
-
-
-        do {
-            robot_move_(dir, 0, 0);
-            read_TOF_front(&output);
-        } while (abs(output - target) > 3);
-        robot_move_(RB_STOP);
+        target = output - squares * MM_TO_SQUARES_FB;
+        if (target < 78) {
+            target = 78;
+        }
+    } else if (dir == RB_BACKWARD) {
+        target = output + squares * MM_TO_SQUARES_FB;
+        target = target - (target % MM_TO_SQUARES_FB/2);
     }
-    COROUTINE_DELAY(50);
+
+    do {
+        robot_move(dir);
+        read_TOF_front(&output);
+        delay(50);
+    } while (abs(output - target) > 3);
+
+    robot_move(RB_STOP); 
 }
 
 inline int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
+    int output = 0;
+    int target = 0;
 
+    read_TOF_left(&output);
+
+    if (dir == RB_FORWARD) {
+        target = output - squares * MM_TO_SQUARES_LR;
+        if (target < 40) {
+            target = 40;
+        }
+    } else if (dir == RB_BACKWARD) {
+        target = output + squares * MM_TO_SQUARES_LR;
+        target = target - (target % MM_TO_SQUARES_LR/2);
+    }
+
+    do {
+        robot_move(RB_LEFT);
+        read_TOF_left(&output);
+        Serial.print("Target: ");
+        Serial.print(target);
+        Serial.print(" Output: ");
+        Serial.println(output);
+        delay(50);
+    } while (abs(output - target) > 3);
+
+    robot_move(RB_STOP); 
 }
 
 inline int MovementCoroutine::task_rotate(ROBOT_DIR dir, int deg) {
@@ -139,6 +170,7 @@ COROUTINE(MovementCoroutine, navigate_maze){
                     this->task_grab_sand();
                     break;
             }
+            COROUTINE_DELAY(50);
         }
     }
 }
@@ -424,7 +456,7 @@ void recenter() {
 #ifdef USE_PID_ROTATE
 #ifdef USE_GYRO
 
-void robot_move_(ROBOT_DIR direction, int16_t heading_correction = 0, int16_t placement_correction = 0, uint16_t speed = max_speed) {
+void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placement_correction, uint16_t speed) {
     double speed_neg = speed;
     double speed_pos = speed;
 

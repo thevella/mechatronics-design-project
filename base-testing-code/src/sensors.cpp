@@ -73,8 +73,12 @@ const uint16_t max_analog = 4095;
 MPU9250_DMP imu;
 #endif
 
+bool TEST_FRONT_TOF = false;
+bool TEST_LEFT_TOF = false;
+
 int target_deg = 0;
 
+void nfc_test();
 /**
  * @brief Setup the sensors for use, ensure they are ready before continuing
  * 
@@ -126,27 +130,64 @@ void setup_sensors() {
     TOF_left.begin();
     TOF_left.VL53L4CD_Off();
 
+    delay(1000);
+
     TOF_front.begin();
     TOF_front.InitSensor();
-    TOF_front.VL53L4CD_SetI2CAddress(0x53);
-    TOF_front.VL53L4CD_SetRangeTiming(150, 50);
+    TOF_front.VL53L4CD_SetI2CAddress(0x54);
+    
+    delay(1000);
+    
+    TOF_front.VL53L4CD_SetRangeTiming(125, 50);
     TOF_front.VL53L4CD_StartRanging();
+    
+    delay(1000);
 
     TOF_left.VL53L4CD_On();
     TOF_left.InitSensor();
-    TOF_left.VL53L4CD_SetRangeTiming(150, 50);
+    TOF_left.VL53L4CD_SetRangeTiming(125, 50);
     TOF_left.VL53L4CD_StartRanging();
 
-    while(true) {
-        int dist = 0;
+    delay(2000);
+    
+    // TEST_FRONT_TOF = true;
+    // TEST_LEFT_TOF = true;
+    // while(true) {
+    //     nfc_test();
+    //     int dist = 0;
+    //     bool status = false;
+    //     bool printed = false;
 
+    //     if (TEST_FRONT_TOF) {
+    //         status = read_TOF_front(&dist);
+
+    //         if (status) {
+    //             Serial.print("FRONT: ");
+    //             Serial.print(dist);
+    //             Serial.print(" ");
+    //             printed = true;
+    //         }
+
+            
+    //     }
+
+    //     if (TEST_LEFT_TOF) {
+    //         status = read_TOF_left(&dist);
+
+    //         if (status) {
+    //             Serial.print("LEFT: ");
+    //             Serial.print(dist);
+    //             printed = true;
+    //         }
+    //     }
+
+    //     if (printed) {
+    //         Serial.println("");
+    //     }
         
-        while (!read_TOF_front(&dist));
 
 
-        Serial.println(dist);
-        
-    }
+    // }
     
 
 
