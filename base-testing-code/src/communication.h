@@ -15,6 +15,8 @@
 #include <LoRa_E220.h>
 
 #define STR_RB_START_STOP "0"
+#define STR_RB_TEST_LEFT_TOF "1"
+#define STR_RB_TEST_RIGHT_TOF "2"
 
 extern struct joystick joystick_com;
 
