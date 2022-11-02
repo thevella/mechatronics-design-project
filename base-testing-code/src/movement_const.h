@@ -45,8 +45,13 @@
 #define MOTOR_RR_BACKWARD FORWARD
 #endif
 
-#define MM_TO_SQUARES_FB 200
+#define MM_TO_SQUARES_FB 195
+#define MM_TO_SQUARES_FB_CORR 5
+#define MM_TO_SQUARES_FB_OFF 78
+
 #define MM_TO_SQUARES_LR 195
+#define MM_TO_SQUARES_LR_CORR 5
+#define MM_TO_SQUARES_LR_OFF 40
 
 extern int motor_stop_delay;
 

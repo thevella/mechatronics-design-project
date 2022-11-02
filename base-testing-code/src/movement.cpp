@@ -78,8 +78,7 @@ using namespace ace_routine;
 
 std::vector<std::vector<int>> commands {{T_FORWARD, 1}};
 
-
-
+int16_t heading = 0;
 
 inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
     int output = 0;
@@ -88,19 +87,19 @@ inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
     read_TOF_front(&output);
 
     if (dir == RB_FORWARD) {
-        target = output - squares * MM_TO_SQUARES_FB;
-        if (target < 78) {
-            target = 78;
+        target = output - (squares * MM_TO_SQUARES_FB + (squares - 1) * MM_TO_SQUARES_FB_CORR);
+        if (target < MM_TO_SQUARES_FB_OFF) {
+            target = MM_TO_SQUARES_FB_OFF;
         }
     } else if (dir == RB_BACKWARD) {
-        target = output + squares * MM_TO_SQUARES_FB;
-        target = target - (target % MM_TO_SQUARES_FB/2);
+        target = output + (squares * MM_TO_SQUARES_FB + (squares - 1) * MM_TO_SQUARES_FB_CORR);
+        target = target - (target % MM_TO_SQUARES_FB) + MM_TO_SQUARES_FB_OFF;
     }
 
     do {
         robot_move(dir);
+        COROUTINE_DELAY(50);
         read_TOF_front(&output);
-        delay(50);
     } while (abs(output - target) > 3);
 
     robot_move(RB_STOP); 
@@ -112,31 +111,46 @@ inline int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
 
     read_TOF_left(&output);
 
-    if (dir == RB_FORWARD) {
-        target = output - squares * MM_TO_SQUARES_LR;
-        if (target < 40) {
-            target = 40;
+    if (dir == RB_LEFT) {
+        target = output - (squares * MM_TO_SQUARES_LR + (squares - 1) * MM_TO_SQUARES_LR_CORR);
+        if (target < MM_TO_SQUARES_LR_OFF) {
+            target = MM_TO_SQUARES_LR_OFF;
         }
-    } else if (dir == RB_BACKWARD) {
-        target = output + squares * MM_TO_SQUARES_LR;
-        target = target - (target % MM_TO_SQUARES_LR/2);
+    } else if (dir == RB_RIGHT) {
+        target = output + (squares * MM_TO_SQUARES_LR + (squares - 1) * MM_TO_SQUARES_LR_CORR);
+        target = target - (target % MM_TO_SQUARES_LR) + MM_TO_SQUARES_LR_OFF;
     }
 
     do {
-        robot_move(RB_LEFT);
+        robot_move(dir);
+        COROUTINE_DELAY(50);
         read_TOF_left(&output);
-        Serial.print("Target: ");
-        Serial.print(target);
-        Serial.print(" Output: ");
-        Serial.println(output);
-        delay(50);
     } while (abs(output - target) > 3);
 
     robot_move(RB_STOP); 
 }
 
-inline int MovementCoroutine::task_rotate(ROBOT_DIR dir, int deg) {
+inline int MovementCoroutine::task_rotate(ROBOT_DIR dir, float deg) {
+    float output = 0;
+    float target = 0;
 
+    output = get_rotation();
+
+    if (dir == RB_TURN_CW) {
+        target = add_degrees(output, deg);
+    } else if (dir == RB_TURN_CC) {
+        target = add_degrees(output, -deg);
+    }
+
+    do {
+        robot_move(dir);
+        COROUTINE_DELAY(50);
+        output = get_rotation();
+    } while (deg_difference(output, target) > 3);
+
+    heading = target;
+
+    robot_move(RB_STOP); 
 }
 
 inline int MovementCoroutine::task_grab_sand() {
@@ -213,6 +227,8 @@ void setup_movement() {
         while (1) { ; }
     }
     #endif
+
+    heading = get_rotation();
 
     
     // Setup the center position and calibrate side sensors
@@ -460,12 +476,18 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
     double speed_neg = speed;
     double speed_pos = speed;
 
+    int16_t placement_corr[4];
     int16_t head_corr[4];
 
     for (int i = 0; i < 4; ++i) {
+        placement_corr[i] = placement_correction;
         head_corr[i] = heading_correction;
         if (i == MOTOR_FR || i == MOTOR_RR) {
             head_corr[i] *= -1;
+        }
+
+        if ((i == MOTOR_FL || i == MOTOR_RR) && (direction == RB_BACKWARD || direction == RB_FORWARD)) {
+            placement_corr[i] *= -1;
         }
     }
 
@@ -481,6 +503,7 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
         motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
         for (int i = 0; i < 4; ++i) {
             head_corr[i] *= -1;
+            placement_corr[i] *= -1;
         }
     } else if (direction == RB_STOP) {
         motorshield.getMotor(MOTOR_FL)->run(RELEASE);
@@ -498,18 +521,27 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
         head_corr[MOTOR_FL] *= -1;
         head_corr[MOTOR_RR] *= -1;
 
+        placement_corr[MOTOR_FL] *= -1;
+        placement_corr[MOTOR_RR] *= -1;
+
     } else if (direction == RB_RIGHT) {
         motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
         motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
         motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
         motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
+
+        head_corr[MOTOR_FR] *= -1;
+        head_corr[MOTOR_RL] *= -1;
+
+        placement_corr[MOTOR_RL] *= -1;
+        placement_corr[MOTOR_FR] *= -1;
     }
     
     // Set adjusted speeds and round to an integer 
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_FL_CONSTANT)+heading_correction) );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_RL_CONSTANT)+heading_correction) );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_RR_CONSTANT)-heading_correction) );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_FR_CONSTANT)-heading_correction) );
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_FL]+placement_corr[MOTOR_FL])*MOTOR_FL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_RL]+placement_corr[MOTOR_RL])*MOTOR_RL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_RR]+placement_corr[MOTOR_RR])*MOTOR_RR_CONSTANT) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_FR]+placement_corr[MOTOR_FR])*MOTOR_FR_CONSTANT) );
 }
 
 void robot_rotation_(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {

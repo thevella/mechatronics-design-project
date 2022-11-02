@@ -8,8 +8,8 @@
 bool do_rotate = false;
 
 
-// EXTERN_COROUTINE(navigate_maze);
-EXTERN_COROUTINE(MovementCoroutine, nfc_read_call);
+EXTERN_COROUTINE(MovementCoroutine, navigate_maze);
+EXTERN_COROUTINE(nfc_read_call);
 
 void setup() {
     // Small delay so we can clear the wires before it starts
@@ -45,40 +45,32 @@ void setup() {
 
     //     Serial.println(get_rotation());
     // }
+
     // Only pull in lora if we want to use it, otherwise
     // will complain and cause slowdowns if unplugged
     #ifdef USE_LORA
     lora_setup();
     #endif
 
-    int output = 0;
-    int target = 0;
-    int num_square = 3;
+   
     ROBOT_DIR dir = RB_FORWARD;
+    float deg = 90;
+    float output = 0;
+    float target = 0;
 
-    delay(2000);
+    output = get_rotation();
 
-    read_TOF_front(&output);
-
-    if (dir == RB_FORWARD) {
-        target = output - num_square * MM_TO_SQUARES_FB;
-        if (target < 78) {
-            target = 78;
-        }
-    } else if (dir == RB_BACKWARD) {
-        target = output + num_square * MM_TO_SQUARES_FB;
-        target = target - (target % MM_TO_SQUARES_FB/2);
+    if (dir == RB_TURN_CW) {
+        target = add_degrees(output, deg);
+    } else if (dir == RB_TURN_CC) {
+        target = add_degrees(output, -deg);
     }
 
     do {
-        robot_move(RB_FORWARD, 3500);
-        read_TOF_front(&output);
-        Serial.print("Target: ");
-        Serial.print(target);
-        Serial.print(" Output: ");
-        Serial.println(output);
+        robot_move(dir);
         delay(50);
-    } while (abs(output - target) > 3);
+        output = get_rotation();
+    } while (deg_difference(output, target) > 3);
 
     robot_move(RB_STOP); 
 

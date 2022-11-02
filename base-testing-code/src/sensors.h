@@ -175,4 +175,5 @@ void setup_sensors();
 float add_degrees(float, float);
 bool update_gyro();
 float get_rotation();
+float deg_difference(float, float);
 #endif

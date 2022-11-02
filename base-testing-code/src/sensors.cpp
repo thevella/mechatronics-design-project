@@ -281,6 +281,26 @@ float get_rotation() {
     return -imu.pitch;
 }
 
+float deg_difference(float current, float target) {
+    float diff = target - current;
+
+    while(diff > 360) {
+        diff = diff - 360;
+    }
+
+    while (diff < -360) {
+        diff = diff + 360;
+    }
+
+    if (diff > 180) {
+        diff = diff - 360;
+    } else if (diff < -180) {
+        diff = diff + 360;
+    }
+
+    return diff;
+}
+
 /**
  * @brief           Add a certain amount of degrees to the passed value,
  *                  binding to a range of -180 to 180
@@ -291,19 +311,16 @@ float get_rotation() {
  */
 float add_degrees(float degrees, float addition) {
     float new_degrees = degrees + addition;
-    int8_t sign = -1;
-
-    if (new_degrees >= 0) {
-        sign = 1;
-    }
     
-    new_degrees = ((int)round(abs(new_degrees)))%360;
-
-    if (new_degrees > 180) {
-        return (360 - new_degrees)*sign;
+    while(new_degrees > 360) {
+        new_degrees = new_degrees - 360;
     }
 
-    return new_degrees*sign;
+    while (new_degrees < 0) {
+        new_degrees = new_degrees + 360;
+    }
+
+    return new_degrees;
 }
 
 

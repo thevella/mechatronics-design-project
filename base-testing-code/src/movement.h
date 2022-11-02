@@ -48,7 +48,14 @@ class MovementCoroutine: public ace_routine::Coroutine {
 public:
     int task_move(ROBOT_DIR dir, int squares);
     int task_strafe(ROBOT_DIR dir, int squares);
-    int task_rotate(ROBOT_DIR dir, int deg);
+    int task_rotate(ROBOT_DIR dir, float deg);
     int task_grab_sand();
 };
+
+#define task_move_(dir, squares) \
+    do { \
+        if (dir == RB_FORWARD) {\
+            robot_move(dir);\
+        }\
+    } while(0)
 
