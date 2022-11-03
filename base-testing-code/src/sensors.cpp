@@ -78,7 +78,7 @@ bool TEST_LEFT_TOF = false;
 
 int target_deg = 0;
 
-void nfc_test();
+
 /**
  * @brief Setup the sensors for use, ensure they are ready before continuing
  * 
@@ -149,48 +149,6 @@ void setup_sensors() {
     TOF_left.VL53L4CD_StartRanging();
 
     delay(2000);
-    
-    // TEST_FRONT_TOF = true;
-    // TEST_LEFT_TOF = true;
-    // while(true) {
-    //     nfc_test();
-    //     int dist = 0;
-    //     bool status = false;
-    //     bool printed = false;
-
-    //     if (TEST_FRONT_TOF) {
-    //         status = read_TOF_front(&dist);
-
-    //         if (status) {
-    //             Serial.print("FRONT: ");
-    //             Serial.print(dist);
-    //             Serial.print(" ");
-    //             printed = true;
-    //         }
-
-            
-    //     }
-
-    //     if (TEST_LEFT_TOF) {
-    //         status = read_TOF_left(&dist);
-
-    //         if (status) {
-    //             Serial.print("LEFT: ");
-    //             Serial.print(dist);
-    //             printed = true;
-    //         }
-    //     }
-
-    //     if (printed) {
-    //         Serial.println("");
-    //     }
-        
-
-
-    // }
-    
-
-
 
 }
 

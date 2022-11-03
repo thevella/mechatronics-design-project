@@ -82,11 +82,11 @@ std::vector<std::vector<int>> commands {{T_FORWARD, 1}};
 
 int16_t heading = 0;
 
-inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
+int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
     int output = 0;
     int output2 = 0;
     int target = 0;
-     read_TOF_front(&output);
+    read_TOF_front(&output);
 
     bool move = false;
     
@@ -97,7 +97,7 @@ inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
                 robot_move_(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
             }
             move = false;
-            delay(25);
+            COROUTINE_DELAY(25);
             move = read_TOF_front(&output);
         }
 
@@ -126,22 +126,42 @@ inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
                 robot_move_(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
             }
             move = false;
-            delay(25);
+            COROUTINE_DELAY(25);
             move = read_TOF_front(&output);
         } while (abs(output - target) > 3);
     }
     
     robot_move(RB_STOP);
+    return 0;
 }
 
-inline int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
+int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
     int output = 0;
     int target = 0;
+    int output2 = 0;
+
 
     read_TOF_left(&output);
 
+    bool move = false;
+    
+    if (output > 900) {
+        while (abs(output - 865) > 3) {
+            move = move || read_TOF_front(&output2);
+            if (move) {
+                robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
+            }
+            move = false;
+            COROUTINE_DELAY(25);
+            move = read_TOF_left(&output);
+        }
+
+        --squares;
+    }
+    
+
     if (dir == RB_LEFT) {
-        target = output - (squares * MM_TO_SQUARES_LR + (squares - 1) * MM_TO_SQUARES_LR_CORR);
+        target = output - (squares * MM_TO_SQUARES_LR - (squares - 1) * MM_TO_SQUARES_LR_CORR);
         if (target < MM_TO_SQUARES_LR_OFF) {
             target = MM_TO_SQUARES_LR_OFF;
         }
@@ -149,17 +169,26 @@ inline int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
         target = output + (squares * MM_TO_SQUARES_LR + (squares - 1) * MM_TO_SQUARES_LR_CORR);
         target = target - (target % MM_TO_SQUARES_LR) + MM_TO_SQUARES_LR_OFF;
     }
+    
+    move = false;
 
-    do {
-        robot_move(dir);
-        COROUTINE_DELAY(50);
-        read_TOF_left(&output);
-    } while (abs(output - target) > 3);
-
-    robot_move(RB_STOP); 
+    if (squares != 0) {
+        do {
+            move = move || read_TOF_front(&output2);
+            if (move) {
+                robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
+            }
+            move = false;
+            COROUTINE_DELAY(25);
+            move = read_TOF_left(&output);
+        } while (abs(output - target) > 3);
+    }
+    
+    robot_move(RB_STOP);
+    return 0;
 }
 
-inline int MovementCoroutine::task_rotate(ROBOT_DIR dir, float deg) {
+int MovementCoroutine::task_rotate(ROBOT_DIR dir, float deg) {
     float output = 0;
     float target = 0;
 
@@ -180,11 +209,12 @@ inline int MovementCoroutine::task_rotate(ROBOT_DIR dir, float deg) {
     heading = target;
 
     robot_move(RB_STOP); 
+    return 0;
 }
 
-inline int MovementCoroutine::task_grab_sand() {
-
-}
+int MovementCoroutine::task_grab_sand() {
+    return 0;
+}   
 
 COROUTINE(MovementCoroutine, navigate_maze){
     COROUTINE_LOOP() {
@@ -215,6 +245,12 @@ COROUTINE(MovementCoroutine, navigate_maze){
             }
             COROUTINE_DELAY(50);
         }
+    }
+};
+
+void robot_stop() {
+    for (int i = 0; i < 4; ++i) {
+        motorshield.getMotor(i)->run(RELEASE);
     }
 }
 
@@ -505,7 +541,7 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
     double xc = 0;
     double yc = 0;
 
-    int16_t head_corr[4];
+    int16_t head_corr[4] = {0,0,0,0};
 
     for (int i = 0; i < 4; ++i) {
         head_corr[i] = heading_correction;
@@ -568,6 +604,11 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
     xyc = {xc, yc};
 
     double theta = -1 * placement_correction * PI/((double)180.0);
+
+    if (direction == RB_LEFT || direction == RB_RIGHT) {
+        theta *= -1;
+    }
+
     rotation = {cos(theta), -sin(theta), sin(theta), cos(theta)};
 
     xyc = rotation * xyc;
@@ -582,10 +623,10 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
     
     
 
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg)*MOTOR_FL_CONSTANT) );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos)*MOTOR_RL_CONSTANT) );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg)*MOTOR_RR_CONSTANT) );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos)*MOTOR_FR_CONSTANT) );
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_FL])*MOTOR_FL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_RL])*MOTOR_RL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_RR])*MOTOR_RR_CONSTANT) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_FR])*MOTOR_FR_CONSTANT) );
 }
 
 
@@ -593,8 +634,8 @@ void robot_move_old(ROBOT_DIR direction, int16_t heading_correction, int16_t pla
     double speed_neg = speed;
     double speed_pos = speed;
 
-    int16_t placement_corr[4];
-    int16_t head_corr[4];
+    int16_t placement_corr[4] = {0,0,0,0};
+    int16_t head_corr[4] = {0,0,0,0};
 
     for (int i = 0; i < 4; ++i) {
         placement_corr[i] = 0;

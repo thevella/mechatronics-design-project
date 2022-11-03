@@ -6,7 +6,7 @@
 #include <Wire.h>
 
 bool do_rotate = false;
-
+using namespace ace_routine;
 
 EXTERN_COROUTINE(MovementCoroutine, navigate_maze);
 EXTERN_COROUTINE(nfc_read_call);
@@ -53,61 +53,59 @@ void setup() {
     #endif
 
    
-    ROBOT_DIR dir = RB_LEFT;
-    int squares = 3;
-    int output = 0;
-    int target = 0;
-    int output2 = 0;
+    // ROBOT_DIR dir = RB_LEFT;
+    // int squares = 3;
+    // int output = 0;
+    // int target = 0;
+    // int output2 = 0;
 
 
-    read_TOF_left(&output);
+    // read_TOF_left(&output);
 
-    bool move = false;
+    // bool move = false;
     
-    if (output > 900) {
-        while (abs(output - 865) > 3) {
-            move = move || read_TOF_front(&output2);
-            if (move) {
-                robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
-            }
-            move = false;
-            delay(25);
-            move = read_TOF_left(&output);
-        }
+    // if (output > 900) {
+    //     while (abs(output - 865) > 3) {
+    //         move = move || read_TOF_front(&output2);
+    //         if (move) {
+    //             robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
+    //         }
+    //         move = false;
+    //         delay(25);
+    //         move = read_TOF_left(&output);
+    //     }
 
-        --squares;
-    }
+    //     --squares;
+    // }
     
 
-    if (dir == RB_LEFT) {
-        target = output - (squares * MM_TO_SQUARES_LR - (squares - 1) * MM_TO_SQUARES_LR_CORR);
-        if (target < MM_TO_SQUARES_LR_OFF) {
-            target = MM_TO_SQUARES_LR_OFF;
-        }
-    } else if (dir == RB_RIGHT) {
-        target = output + (squares * MM_TO_SQUARES_LR + (squares - 1) * MM_TO_SQUARES_LR_CORR);
-        target = target - (target % MM_TO_SQUARES_LR) + MM_TO_SQUARES_LR_OFF;
-    }
-
+    // if (dir == RB_LEFT) {
+    //     target = output - (squares * MM_TO_SQUARES_LR - (squares - 1) * MM_TO_SQUARES_LR_CORR);
+    //     if (target < MM_TO_SQUARES_LR_OFF) {
+    //         target = MM_TO_SQUARES_LR_OFF;
+    //     }
+    // } else if (dir == RB_RIGHT) {
+    //     target = output + (squares * MM_TO_SQUARES_LR + (squares - 1) * MM_TO_SQUARES_LR_CORR);
+    //     target = target - (target % MM_TO_SQUARES_LR) + MM_TO_SQUARES_LR_OFF;
+    // }
     
-    
-    move = false;
+    // move = false;
 
-    if (squares != 0) {
-        do {
-            move = move || read_TOF_front(&output2);
-            if (move) {
-                robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
-            }
-            move = false;
-            delay(25);
-            move = read_TOF_left(&output);
-        } while (abs(output - target) > 3);
-    }
+    // if (squares != 0) {
+    //     do {
+    //         move = move || read_TOF_front(&output2);
+    //         if (move) {
+    //             robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
+    //         }
+    //         move = false;
+    //         delay(25);
+    //         move = read_TOF_left(&output);
+    //     } while (abs(output - target) > 3);
+    // }
     
-    robot_move(RB_STOP);
+    // robot_move(RB_STOP);
 
-    while(true){}
+    // while(true){}
 
     ace_routine::CoroutineScheduler::setup();
     
@@ -117,6 +115,38 @@ void setup() {
 
 void loop() {
     ace_routine::CoroutineScheduler::loop();
+
+    int dist = 0;
+    bool status = false;
+    bool printed = false;
+
+    if (TEST_FRONT_TOF) {
+        status = read_TOF_front(&dist);
+
+        if (status) {
+            Serial.print("FRONT: ");
+            Serial.print(dist);
+            Serial.print(" ");
+            printed = true;
+        }
+
+        
+    }
+
+    if (TEST_LEFT_TOF) {
+        status = read_TOF_left(&dist);
+
+        if (status) {
+            Serial.print("LEFT: ");
+            Serial.print(dist);
+            printed = true;
+        }
+    }
+
+    if (printed) {
+        Serial.println("");
+    }
+    
 }
 
 

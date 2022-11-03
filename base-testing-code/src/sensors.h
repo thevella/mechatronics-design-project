@@ -44,6 +44,10 @@ bool read_TOF_front(int* output, int* status = nullptr);
 bool read_TOF_left(int* output, int* status = nullptr);
 
 
+extern bool TEST_FRONT_TOF;
+extern bool TEST_LEFT_TOF;
+
+
 class dist_sensor {
 	
 public:

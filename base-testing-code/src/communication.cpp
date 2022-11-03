@@ -26,56 +26,72 @@ EXTERN_COROUTINE(navigate_maze);
 String uri;
 extern bool TEST_FRONT_TOF;
 extern bool TEST_LEFT_TOF;
+void robot_stop();
 
+COROUTINE(nfc_read_call) {
+	COROUTINE_BEGIN();
+	st25dv.writeURI(URI_ID_0x0D_STRING, "NULL", "");
+	while(true) {
 
-// COROUTINE(nfc_read_call) {
-// 	COROUTINE_LOOP() {
-// 		st25dv.readURI(&uri);
+		st25dv.readURI(&uri);
 
-// 		if (strcmp(uri.c_str(), STR_RB_START_STOP) == 0) {
-// 			if (!navigate_maze.isSuspended()) {
-// 				navigate_maze.suspend();
-// 			} else {
-// 				navigate_maze.resume();
-// 			}
-// 		} else if (strcmp(uri.c_str(), STR_RB_TEST_LEFT_TOF) == 0) {
-// 			TEST_LEFT_TOF = !TEST_LEFT_TOF;
-// 		} else if (strcmp(uri.c_str(), STR_RB_TEST_RIGHT_TOF) == 0) {
-// 			TEST_FRONT_TOF = !TEST_FRONT_TOF;
-// 		}
-// 		Serial.print("Command: ");
-// 		Serial.println(uri);
-// 		st25dv.writeURI("", "NULL", "");
-// 		COROUTINE_DELAY(50);
-// 	}
+		if (strcmp(uri.c_str(), "ftp://NULL") == 0) {
+			continue;
+		}
+		char uri_c[20];
+		strcpy(uri_c, uri.c_str());
+		memmove(uri_c, uri_c+strlen(URI_ID_0x0D_STRING), strlen(uri_c));
+
+		if (strcmp(uri_c, STR_RB_START_STOP) == 0) {
+			if (!navigate_maze.isSuspended()) {
+				Serial.println("Suspending");
+				navigate_maze.suspend();
+				robot_stop();
+			} else {
+				Serial.println("Unsuspending");
+				navigate_maze.resume();
+			}
+		} else if (strcmp(uri_c, STR_RB_TEST_LEFT_TOF) == 0) {
+			TEST_LEFT_TOF = !TEST_LEFT_TOF;
+		} else if (strcmp(uri_c, STR_RB_TEST_RIGHT_TOF) == 0) {
+			TEST_FRONT_TOF = !TEST_FRONT_TOF;
+		}
+		
+		st25dv.writeURI(URI_ID_0x0D_STRING, "NULL", "");
+		COROUTINE_DELAY(200);
+	}
+
+	COROUTINE_END();
 	
-// }
+}
 
 void nfc_test() {
 	bool matched = true;
 
 	st25dv.readURI(&uri);
 
-	if (strcmp(uri.c_str(), STR_RB_START_STOP) == 0) {
+	if (strcmp(uri.c_str(), "ftp://NULL") == 0) {
+		return;
+	}
+	char uri_c[20];
+	strcpy(uri_c, uri.c_str());
+	memmove(uri_c, uri_c+strlen(URI_ID_0x0D_STRING), strlen(uri_c));
+
+	if (strcmp(uri_c, STR_RB_START_STOP) == 0) {
 		if (!navigate_maze.isSuspended()) {
 			navigate_maze.suspend();
 		} else {
 			navigate_maze.resume();
 		}
-	} else if (strcmp(uri.c_str(), STR_RB_TEST_LEFT_TOF) == 0) {
+	} else if (strcmp(uri_c, STR_RB_TEST_LEFT_TOF) == 0) {
 		TEST_LEFT_TOF = !TEST_LEFT_TOF;
-	} else if (strcmp(uri.c_str(), STR_RB_TEST_RIGHT_TOF) == 0) {
+	} else if (strcmp(uri_c, STR_RB_TEST_RIGHT_TOF) == 0) {
 		TEST_FRONT_TOF = !TEST_FRONT_TOF;
 	} else {
 		matched = false;
 	}
-
-	if (!matched) {
-		Serial.print("Command: ");
-		Serial.println(uri);
-	}
 	
-	st25dv.writeURI("", "NULL", "");
+	st25dv.writeURI(URI_ID_0x0D_STRING, "NULL", "");
 }
 
 
