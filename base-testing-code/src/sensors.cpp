@@ -208,8 +208,6 @@ bool read_tof(VL53L4CD* sensor, int* output, int* status_out = nullptr) {
     }
 
     if (!NewDataReady) {
-        
-        
         return false;
     }
 
@@ -278,7 +276,8 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
  */
 float get_rotation() {
     update_gyro();
-    return -imu.pitch;
+
+    return 360 - imu.yaw;
 }
 
 float deg_difference(float current, float target) {
