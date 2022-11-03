@@ -20,7 +20,7 @@
 
 extern struct joystick joystick_com;
 
-void nfc_test();
+void nfc_delay(long long);
 void nfc_setup();
 void check_message_lora();
 
