@@ -52,10 +52,4 @@ public:
     int task_grab_sand();
 };
 
-#define task_move_(dir, squares) \
-    do { \
-        if (dir == RB_FORWARD) {\
-            robot_move(dir);\
-        }\
-    } while(0)
 

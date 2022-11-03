@@ -1,6 +1,7 @@
 #include "movement.h"
 #include "sensors.h"
 #include <ArxContainer.h>
+#include <math.h>
 
 #ifdef USE_PID_ROTATE
 #include <PID_v1.h>
@@ -21,6 +22,7 @@ Adafruit_MotorShield motorshield = Adafruit_MotorShield();
 // not only on the orthagonal as most setups configure
 BLA::ArrayMatrix<2, 1, double> xyc = {0,0};
 BLA::ArrayMatrix<2, 1, double> speed_solved = {0, 0};
+BLA::ArrayMatrix<2, 2, double> rotation = {0, 0, 0, 0};
 
 // Matrix containing the components of the wheel vectors
 // Two wheels make a vector at 45deg into the first quadrant,
@@ -38,7 +40,7 @@ auto speed_decomp = BLA::LUDecompose(speed_u_vec);
 
 // Set max speed as a reduced value
 // to limit drift from current setup
-uint16_t max_speed = 4095/2;
+uint16_t max_speed = 3800;
 int16_t cur_speed = 0;
 uint16_t robot_acceleration = 20;
 
@@ -82,12 +84,29 @@ int16_t heading = 0;
 
 inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
     int output = 0;
+    int output2 = 0;
     int target = 0;
+     read_TOF_front(&output);
+
+    bool move = false;
     
-    read_TOF_front(&output);
+    if (output > 900) {
+        while (abs(output - 865) > 3) {
+            move = move || read_TOF_left(&output2);
+            if (move) {
+                robot_move_(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
+            }
+            move = false;
+            delay(25);
+            move = read_TOF_front(&output);
+        }
+
+        --squares;
+    }
+    
 
     if (dir == RB_FORWARD) {
-        target = output - (squares * MM_TO_SQUARES_FB + (squares - 1) * MM_TO_SQUARES_FB_CORR);
+        target = output - (squares * MM_TO_SQUARES_FB - (squares - 1) * MM_TO_SQUARES_FB_CORR);
         if (target < MM_TO_SQUARES_FB_OFF) {
             target = MM_TO_SQUARES_FB_OFF;
         }
@@ -96,13 +115,23 @@ inline int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
         target = target - (target % MM_TO_SQUARES_FB) + MM_TO_SQUARES_FB_OFF;
     }
 
-    do {
-        robot_move(dir);
-        COROUTINE_DELAY(50);
-        read_TOF_front(&output);
-    } while (abs(output - target) > 3);
+    
+    
+    move = false;
 
-    robot_move(RB_STOP); 
+    if (squares != 0) {
+        do {
+            move = move || read_TOF_left(&output2);
+            if (move) {
+                robot_move_(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
+            }
+            move = false;
+            delay(25);
+            move = read_TOF_front(&output);
+        } while (abs(output - target) > 3);
+    }
+    
+    robot_move(RB_STOP);
 }
 
 inline int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
@@ -473,21 +502,15 @@ void recenter() {
 #ifdef USE_GYRO
 
 void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placement_correction, uint16_t speed) {
-    double speed_neg = speed;
-    double speed_pos = speed;
+    double xc = 0;
+    double yc = 0;
 
-    int16_t placement_corr[4];
     int16_t head_corr[4];
 
     for (int i = 0; i < 4; ++i) {
-        placement_corr[i] = placement_correction;
         head_corr[i] = heading_correction;
         if (i == MOTOR_FR || i == MOTOR_RR) {
             head_corr[i] *= -1;
-        }
-
-        if ((i == MOTOR_FL || i == MOTOR_RR) && (direction == RB_BACKWARD || direction == RB_FORWARD)) {
-            placement_corr[i] *= -1;
         }
     }
 
@@ -496,6 +519,104 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
         motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
         motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
         motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
+
+        xc = max_speed;
+    } else if (direction == RB_BACKWARD) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
+
+        xc = -max_speed;
+
+        for (int i = 0; i < 4; ++i) {
+            head_corr[i] *= -1;
+        }
+    } else if (direction == RB_STOP) {
+        motorshield.getMotor(MOTOR_FL)->run(RELEASE);
+        motorshield.getMotor(MOTOR_RR)->run(RELEASE);
+        motorshield.getMotor(MOTOR_RL)->run(RELEASE);
+        motorshield.getMotor(MOTOR_FR)->run(RELEASE);
+    }
+
+    if (direction == RB_LEFT) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
+
+        yc = -max_speed;
+
+        head_corr[MOTOR_FL] *= -1;
+        head_corr[MOTOR_RR] *= -1;
+    } else if (direction == RB_RIGHT) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
+
+        yc = max_speed;
+
+        head_corr[MOTOR_FR] *= -1;
+        head_corr[MOTOR_RL] *= -1;
+    }
+
+
+    // By taking the unit vector of the input, then solving against
+    // the wheel vectors defined in the preamble, we are able to arbitrarily
+    // strafe
+    xyc = {xc, yc};
+
+    double theta = -1 * placement_correction * PI/((double)180.0);
+    rotation = {cos(theta), -sin(theta), sin(theta), cos(theta)};
+
+    xyc = rotation * xyc;
+
+    speed_solved = BLA::LUSolve(speed_decomp, xyc);
+    
+    double speed_mag = sqrt(pow(speed_solved(0), 2) + pow(speed_solved(1), 2));
+
+    double speed_neg = (speed_solved(0)/speed_mag) * speed;
+    double speed_pos = (speed_solved(1)/speed_mag) * speed;
+
+    
+    
+
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg)*MOTOR_FL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos)*MOTOR_RL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg)*MOTOR_RR_CONSTANT) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos)*MOTOR_FR_CONSTANT) );
+}
+
+
+void robot_move_old(ROBOT_DIR direction, int16_t heading_correction, int16_t placement_correction, uint16_t speed) {
+    double speed_neg = speed;
+    double speed_pos = speed;
+
+    int16_t placement_corr[4];
+    int16_t head_corr[4];
+
+    for (int i = 0; i < 4; ++i) {
+        placement_corr[i] = 0;
+        head_corr[i] = heading_correction;
+        if (i == MOTOR_FR || i == MOTOR_RR) {
+            head_corr[i] *= -1;
+        }
+    }
+
+    if (direction == RB_FORWARD) {
+        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
+        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
+        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
+        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
+        
+        if (placement_correction < 0) {
+            placement_corr[MOTOR_RL] = -placement_correction;
+            placement_corr[MOTOR_FR] = -placement_correction;
+        } else {
+            placement_corr[MOTOR_FL] = -placement_correction;
+            placement_corr[MOTOR_RR] = -placement_correction;
+        }
     } else if (direction == RB_BACKWARD) {
         motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
         motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
@@ -504,6 +625,13 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
         for (int i = 0; i < 4; ++i) {
             head_corr[i] *= -1;
             placement_corr[i] *= -1;
+        }
+        if (placement_correction > 0) {
+            placement_corr[MOTOR_RL] = -placement_correction;
+            placement_corr[MOTOR_FR] = -placement_correction;
+        } else {
+            placement_corr[MOTOR_FL] = -placement_correction;
+            placement_corr[MOTOR_RR] = -placement_correction;
         }
     } else if (direction == RB_STOP) {
         motorshield.getMotor(MOTOR_FL)->run(RELEASE);
@@ -521,8 +649,6 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
         head_corr[MOTOR_FL] *= -1;
         head_corr[MOTOR_RR] *= -1;
 
-        placement_corr[MOTOR_FL] *= -1;
-        placement_corr[MOTOR_RR] *= -1;
 
     } else if (direction == RB_RIGHT) {
         motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
@@ -533,8 +659,7 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
         head_corr[MOTOR_FR] *= -1;
         head_corr[MOTOR_RL] *= -1;
 
-        placement_corr[MOTOR_RL] *= -1;
-        placement_corr[MOTOR_FR] *= -1;
+
     }
     
     // Set adjusted speeds and round to an integer 
@@ -843,10 +968,10 @@ void manual_move(uint16_t x, uint16_t y) {
     }
     
 
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg*(4822/4702.0))) );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos*(4852/4854.0))) );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg*(7047/7199.0))) );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos)) );
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_FL_CONSTANT)) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_RL_CONSTANT)) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_RR_CONSTANT)) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_FR_CONSTANT)) );
 }
 
 /**

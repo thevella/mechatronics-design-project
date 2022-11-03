@@ -53,26 +53,59 @@ void setup() {
     #endif
 
    
-    ROBOT_DIR dir = RB_FORWARD;
-    float deg = 90;
-    float output = 0;
-    float target = 0;
+    ROBOT_DIR dir = RB_LEFT;
+    int squares = 3;
+    int output = 0;
+    int target = 0;
+    int output2 = 0;
 
-    output = get_rotation();
 
-    if (dir == RB_TURN_CW) {
-        target = add_degrees(output, deg);
-    } else if (dir == RB_TURN_CC) {
-        target = add_degrees(output, -deg);
+    read_TOF_left(&output);
+
+    bool move = false;
+    
+    if (output > 900) {
+        while (abs(output - 865) > 3) {
+            move = move || read_TOF_front(&output2);
+            if (move) {
+                robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
+            }
+            move = false;
+            delay(25);
+            move = read_TOF_left(&output);
+        }
+
+        --squares;
+    }
+    
+
+    if (dir == RB_LEFT) {
+        target = output - (squares * MM_TO_SQUARES_LR - (squares - 1) * MM_TO_SQUARES_LR_CORR);
+        if (target < MM_TO_SQUARES_LR_OFF) {
+            target = MM_TO_SQUARES_LR_OFF;
+        }
+    } else if (dir == RB_RIGHT) {
+        target = output + (squares * MM_TO_SQUARES_LR + (squares - 1) * MM_TO_SQUARES_LR_CORR);
+        target = target - (target % MM_TO_SQUARES_LR) + MM_TO_SQUARES_LR_OFF;
     }
 
-    do {
-        robot_move(dir);
-        delay(50);
-        output = get_rotation();
-    } while (deg_difference(output, target) > 3);
+    
+    
+    move = false;
 
-    robot_move(RB_STOP); 
+    if (squares != 0) {
+        do {
+            move = move || read_TOF_front(&output2);
+            if (move) {
+                robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
+            }
+            move = false;
+            delay(25);
+            move = read_TOF_left(&output);
+        } while (abs(output - target) > 3);
+    }
+    
+    robot_move(RB_STOP);
 
     while(true){}
 

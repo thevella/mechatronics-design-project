@@ -647,7 +647,7 @@ void MPU9250_DMP::computeEulerAngles(bool degrees)
 		pitch *= (180.0 / PI);
 		roll *= (180.0 / PI);
 		yaw *= (180.0 / PI);
-		
+
 		if (pitch < 0) pitch = 360.0 + pitch;
 		if (roll < 0) roll = 360.0 + roll;
 		if (yaw < 0) yaw = 360.0 + yaw;	
