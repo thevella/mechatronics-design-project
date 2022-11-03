@@ -65,9 +65,7 @@ COROUTINE(nfc_read_call) {
 	
 }
 
-void nfc_test() {
-	bool matched = true;
-
+void nfc_delay(long long millis) {
 	st25dv.readURI(&uri);
 
 	if (strcmp(uri.c_str(), "ftp://NULL") == 0) {
@@ -83,12 +81,11 @@ void nfc_test() {
 		} else {
 			navigate_maze.resume();
 		}
+		yield;
 	} else if (strcmp(uri_c, STR_RB_TEST_LEFT_TOF) == 0) {
 		TEST_LEFT_TOF = !TEST_LEFT_TOF;
 	} else if (strcmp(uri_c, STR_RB_TEST_RIGHT_TOF) == 0) {
 		TEST_FRONT_TOF = !TEST_FRONT_TOF;
-	} else {
-		matched = false;
 	}
 	
 	st25dv.writeURI(URI_ID_0x0D_STRING, "NULL", "");
