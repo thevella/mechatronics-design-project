@@ -1,5 +1,8 @@
 #include "sensors.h"
+
+#ifdef USE_SCHEDULING
 #include <AceRoutine.h>
+#endif
 
 #define reverse_sensor
 
@@ -39,6 +42,7 @@ const uint8_t MOTOR_ENC_PINS[4][2] = {*MOTOR_FR_ENC_PINS, *MOTOR_FL_ENC_PINS, *M
 volatile struct encoders enc = {0, 0, 0, 0};
 #endif
 
+#ifdef USE_IR
 // Distance Sensors definition
 const uint8_t distance_sensors[][2] = {{A0, 13}, {A1, 13}, {A2, 13}, {A3, 13}};
 const uint8_t num_dist_sensors = 3;
@@ -59,7 +63,7 @@ dist_sensor dist_left(DIST_LEFT);
 dist_sensor dist_right(DIST_RIGHT);
 dist_sensor dist_front(DIST_FRONT);
 // dist_sensor dist_back(DIST_BACK);
-
+#endif
 
 VL53L4CD TOF_left(&Wire, 52);
 VL53L4CD TOF_front(&Wire, 53);
@@ -126,7 +130,6 @@ void setup_sensors() {
 
     #endif
 
-    // delay(10000);
 
     TOF_left.begin();
     TOF_left.VL53L4CD_Off();
@@ -150,10 +153,6 @@ void setup_sensors() {
     TOF_left.VL53L4CD_StartRanging();
 
     delay(2000);
-
-    // while(true) {
-    //     test_TOF();
-    // }
 
 }
 
@@ -227,6 +226,7 @@ bool read_tof(VL53L4CD* sensor, int* output, int* status_out = nullptr) {
         
         return true;
     }
+    return false;
 }
 
 bool read_TOF_front(int* output, int* status) {
@@ -237,7 +237,7 @@ bool read_TOF_left(int* output, int* status) {
     return read_tof(&TOF_left, output, status);
 }
 
-
+#ifdef USE_IR
 /**
  * @brief           Construct a new dist sensor::dist sensor object
  * 
@@ -268,7 +268,7 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
     this->cal_values[0] = val1;
     this->cal_values[1] = val2;
 }
-
+#endif
 
 #ifdef USE_GYRO
 /**

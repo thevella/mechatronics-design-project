@@ -12,6 +12,15 @@
 #define MOTOR_RL 3
 #define MOTOR_RR 2
 
+// Constants for calibrating the speed of the motors,
+// for some reason the encoders are not reliable.
+// Possibly due to number of interrupts from 4 motors
+// allowing some to be missed
+#define MOTOR_FR_CONSTANT (double)1.0
+#define MOTOR_FL_CONSTANT ((double)1.00)
+#define MOTOR_RL_CONSTANT ((double)1.04)
+#define MOTOR_RR_CONSTANT ((double)1.06)
+
 // Define how the wires are hooked up, easier than
 // changing the wires every time
 #define MOTOR_FR_FORWARD FORWARD
@@ -98,7 +107,3 @@ enum ROBOT_DIR {
     RB_TURN_CW
 };
 
-// Only need to export if we are tuning, otherwise keep it internal
-#ifdef TUNE_PID_ROTATE
-extern uint16_t max_speed;
-#endif

@@ -1,8 +1,13 @@
 #include "communication.h"
+
+#ifdef USE_SCHEDULING
 #include "scheduling.h"
-#include "ST25DVSensor.h"
+#endif
+
+
 #include "movement.h"
 
+#ifdef USE_LORA
 // LORA modules can be used for communication in adverse environments
 // due to their low wavelength and simple communications protocol
 // Additionally, because of this, LORA is fairly simple to implement
@@ -16,16 +21,20 @@ LoRa_E220(HardwareSerial* serial, byte auxPin, byte m0Pin, byte m1Pin, UART_BPS_
 // LoRa_E220(serial_interface, digital_pin, digital_pin, digital_pin)
 LoRa_E220 e220ttl(&Serial3, 30, 29, 28);
 
+#endif
+
 // Initialize data we are receiving
 struct joystick joystick_com = {(uint16_t)(max_analog/2), (uint16_t)(max_analog/2), false};
 bool old_button = false;
 
+#ifdef USE_NFC
 char output[50];
 
 String uri;
 extern bool TEST_FRONT_TOF;
 extern bool TEST_LEFT_TOF;
 void robot_stop();
+
 
 void nfc_read_call() {
 	char uri_c[20];
@@ -85,7 +94,11 @@ void nfc_setup() {
 	st25dv.begin(A1, A2, &Wire);
 }
 
+#endif
 
+
+
+#ifdef USE_LORA
 
 // Check if message available and convert data from struct to 
 // usable structure
@@ -201,6 +214,7 @@ void lora_setup() {
 	c.close();
 }
 
+
 // Print current config
 void printParametersLora(struct Configuration configuration) {
 	Serial.println("----------------------------------------");
@@ -227,3 +241,5 @@ void printParametersLora(struct Configuration configuration) {
 
 	Serial.println("----------------------------------------");
 }
+
+#endif

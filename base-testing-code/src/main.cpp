@@ -6,7 +6,10 @@
 #include <Wire.h>
 
 bool do_rotate = false;
+
+#ifdef USE_SCHEDULING
 using namespace ace_routine;
+#endif
 
 void setup() {
     // Small delay so we can clear the wires before it starts
@@ -19,7 +22,10 @@ void setup() {
     Serial.begin(9600);
     while (!Serial) {}
 
+    #ifdef USE_NFC
     nfc_setup();
+    #endif
+    
     // Call setup functions
     setup_sensors();
     setup_movement();
