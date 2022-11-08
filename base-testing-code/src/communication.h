@@ -17,10 +17,11 @@
 #define STR_RB_START_STOP "0"
 #define STR_RB_TEST_LEFT_TOF "1"
 #define STR_RB_TEST_RIGHT_TOF "2"
+#define STR_RB_TEST_TOF "3"
 
 extern struct joystick joystick_com;
 
-void nfc_delay(long long);
+void nfc_read_call();
 void nfc_setup();
 void check_message_lora();
 

@@ -121,11 +121,12 @@ void setup_sensors() {
 
     for (int i = 0; i < 10; ++i) {
         get_rotation();
+        delay(50);
     }
 
     #endif
 
-
+    // delay(10000);
 
     TOF_left.begin();
     TOF_left.VL53L4CD_Off();
@@ -150,6 +151,47 @@ void setup_sensors() {
 
     delay(2000);
 
+    // while(true) {
+    //     test_TOF();
+    // }
+
+}
+
+void test_TOF() {
+    int dist = 0;
+    bool status = false;
+    bool printed = false;
+
+    TEST_FRONT_TOF = true;
+    TEST_LEFT_TOF = true;
+
+    if (TEST_FRONT_TOF) {
+        status = read_TOF_front(&dist);
+
+        if (status) {
+            Serial.print("FRONT: ");
+            Serial.print(dist);
+            Serial.print(" ");
+            printed = true;
+        }
+
+        
+    }
+
+    if (TEST_LEFT_TOF) {
+        status = read_TOF_left(&dist);
+
+        if (status) {
+            Serial.print("LEFT: ");
+            Serial.print(dist);
+            printed = true;
+        }
+    }
+
+    if (printed) {
+        Serial.println("");
+    }
+    
 }
 
 
@@ -176,11 +218,13 @@ bool read_tof(VL53L4CD* sensor, int* output, int* status_out = nullptr) {
         // Read measured distance. RangeStatus = 0 means valid data
         sensor->VL53L4CD_GetResult(&results);
 
+        *output = results.distance_mm;
+
         if (results.range_status != 0) {
             return false;
         }
 
-        *output = results.distance_mm;
+        
         return true;
     }
 }
@@ -233,7 +277,7 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
  * @return float    Rotation in deg, bound to range of -180 to 180
  */
 float get_rotation() {
-    update_gyro();
+    while (!update_gyro()) delay(10);
 
     return 360 - imu.yaw;
 }
@@ -254,6 +298,13 @@ float deg_difference(float current, float target) {
     } else if (diff < -180) {
         diff = diff + 360;
     }
+
+    Serial.print("Current: ");
+    Serial.print(current);
+    Serial.print(" Target: ");
+    Serial.print(target);
+    Serial.print(" Diff: ");
+    Serial.println(diff);
 
     return diff;
 }

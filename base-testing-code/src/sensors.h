@@ -42,7 +42,7 @@ extern volatile struct encoders enc;
 extern int target_deg;
 bool read_TOF_front(int* output, int* status = nullptr);
 bool read_TOF_left(int* output, int* status = nullptr);
-
+void test_TOF();
 
 extern bool TEST_FRONT_TOF;
 extern bool TEST_LEFT_TOF;

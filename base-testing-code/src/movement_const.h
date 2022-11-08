@@ -15,8 +15,8 @@
 // Define how the wires are hooked up, easier than
 // changing the wires every time
 #define MOTOR_FR_FORWARD FORWARD
-#define MOTOR_FL_FORWARD BACKWARD
-#define MOTOR_RL_FORWARD FORWARD
+#define MOTOR_FL_FORWARD FORWARD
+#define MOTOR_RL_FORWARD BACKWARD
 #define MOTOR_RR_FORWARD BACKWARD
 
 // Define backwards for every motor based on how 
@@ -45,13 +45,20 @@
 #define MOTOR_RR_BACKWARD FORWARD
 #endif
 
-#define MM_TO_SQUARES_FB 175
-#define MM_TO_SQUARES_FB_CORR 2
-#define MM_TO_SQUARES_FB_OFF 78
+#define MM_TO_SQUARES_F 195
+#define MM_TO_SQUARES_F_CORR 2
+#define MM_TO_SQUARES_FB_OFF 65
 
-#define MM_TO_SQUARES_LR 195
-#define MM_TO_SQUARES_LR_CORR 5
+#define MM_TO_SQUARES_B 195
+#define MM_TO_SQUARES_B_CORR 10
+
+
+#define MM_TO_SQUARES_L 195
+#define MM_TO_SQUARES_L_CORR 6
 #define MM_TO_SQUARES_LR_OFF 43
+
+#define MM_TO_SQUARES_R 195
+#define MM_TO_SQUARES_R_CORR 10
 
 extern int motor_stop_delay;
 
@@ -62,7 +69,8 @@ enum TASK_COMMANDS {
     T_STRAFE_R,
     T_TURN_CW,
     T_TURN_CCW,
-    T_GRAB_SAND
+    T_GRAB_SAND,
+    T_RAMP
 };
 
 /**

@@ -1,6 +1,7 @@
 #include "communication.h"
 #include "scheduling.h"
 #include "ST25DVSensor.h"
+#include "movement.h"
 
 // LORA modules can be used for communication in adverse environments
 // due to their low wavelength and simple communications protocol
@@ -21,15 +22,14 @@ bool old_button = false;
 
 char output[50];
 
-EXTERN_COROUTINE(navigate_maze);
-
 String uri;
 extern bool TEST_FRONT_TOF;
 extern bool TEST_LEFT_TOF;
 void robot_stop();
 
-COROUTINE(nfc_read_call) {
-	COROUTINE_BEGIN();
+void nfc_read_call() {
+	char uri_c[20];
+
 	st25dv.writeURI(URI_ID_0x0D_STRING, "NULL", "");
 	while(true) {
 
@@ -38,31 +38,24 @@ COROUTINE(nfc_read_call) {
 		if (strcmp(uri.c_str(), "ftp://NULL") == 0) {
 			continue;
 		}
-		char uri_c[20];
+		
 		strcpy(uri_c, uri.c_str());
 		memmove(uri_c, uri_c+strlen(URI_ID_0x0D_STRING), strlen(uri_c));
 
 		if (strcmp(uri_c, STR_RB_START_STOP) == 0) {
-			if (!navigate_maze.isSuspended()) {
-				Serial.println("Suspending");
-				navigate_maze.suspend();
-				robot_stop();
-			} else {
-				Serial.println("Unsuspending");
-				navigate_maze.resume();
-			}
+			Serial.println("here");
+			navigate_maze();
 		} else if (strcmp(uri_c, STR_RB_TEST_LEFT_TOF) == 0) {
 			TEST_LEFT_TOF = !TEST_LEFT_TOF;
 		} else if (strcmp(uri_c, STR_RB_TEST_RIGHT_TOF) == 0) {
 			TEST_FRONT_TOF = !TEST_FRONT_TOF;
+		} else if (strcmp(uri_c, STR_RB_TEST_TOF) == 0) {
+			test_TOF();
 		}
 		
 		st25dv.writeURI(URI_ID_0x0D_STRING, "NULL", "");
-		COROUTINE_DELAY(200);
+		delay(200);
 	}
-
-	COROUTINE_END();
-	
 }
 
 void nfc_delay(long long millis) {
@@ -76,12 +69,7 @@ void nfc_delay(long long millis) {
 	memmove(uri_c, uri_c+strlen(URI_ID_0x0D_STRING), strlen(uri_c));
 
 	if (strcmp(uri_c, STR_RB_START_STOP) == 0) {
-		if (!navigate_maze.isSuspended()) {
-			navigate_maze.suspend();
-		} else {
-			navigate_maze.resume();
-		}
-		yield;
+		
 	} else if (strcmp(uri_c, STR_RB_TEST_LEFT_TOF) == 0) {
 		TEST_LEFT_TOF = !TEST_LEFT_TOF;
 	} else if (strcmp(uri_c, STR_RB_TEST_RIGHT_TOF) == 0) {
