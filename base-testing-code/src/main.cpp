@@ -25,7 +25,7 @@ void setup() {
     #ifdef USE_NFC
     nfc_setup();
     #endif
-    
+
     // Call setup functions
     setup_sensors();
     setup_movement();
@@ -49,7 +49,7 @@ void loop() {
 
     navigate_maze();
 
-    while(true){}
+    while(true){Serial.print("FAILED");}
 
    
 }

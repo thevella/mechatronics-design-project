@@ -48,20 +48,64 @@ using namespace ace_routine;
 //                                         {T_STRAFE_R, 1, 50}, {T_BACKWARD, 3}, {T_STRAFE_R, 1}, {T_FORWARD, 1}, {T_STRAFE_R, 1}, {T_BACKWARD, 1},
 //                                         {T_STRAFE_R, 1}, {T_BACKWARD, 1}, {T_STRAFE_R, 1}};
 
-std::vector<std::vector<int>> commands {{T_FORWARD, 4}, {T_TURN_CW, 90}, {T_BACKWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90},
-                                        {T_RAMP}, {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, 
-                                        {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, /**/ {T_BACKWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, 
-                                        /**/{T_TURN_CCW, 90}, {T_BACKWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, 
-                                        {T_TURN_CCW, 90}};
+//#define REVERSE_AUTO
+#define REVERSE
 
-// std::vector<std::vector<int>> commands {{T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_BACKWARD, 1}, 
-//                                         {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CW, 90},/**/ {T_BACKWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, 
-//                                         {T_BACKWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}};
+#if defined(REVERSE) && defined(REVERSE_AUTO)
+#warning Overriding auto reverse
+#undef REVERSE_AUTO
+#endif
 
-// std::vector<std::vector<int>> commands{{T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, 
-//                                         {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, /**/ {T_BACKWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, 
-//                                         /**/{T_TURN_CCW, 90}, {T_BACKWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, 
-//                                         {T_TURN_CCW, 90}};
+#define DO_BOTTOM
+//#define DO_TOP
+#define DO_ALL
+
+#ifdef DO_ALL
+    #ifndef DO_TOP
+        #define DO_TOP
+    #endif
+
+    #ifndef DO_BOTTOM
+        #define DO_BOTTOM
+    #endif
+#endif
+
+std::vector<std::vector<int>> commands {
+    #if defined(DO_TOP)
+    {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_BACKWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}
+    #endif
+
+    #if defined(DO_TOP) && defined(DO_BOTTOM)
+    , {T_RAMP},
+    #endif
+
+    #if defined(DO_BOTTOM)
+    {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, 
+    {T_FORWARD, 1}, {T_TURN_CCW, 90}, /**/ {T_BACKWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, 
+    {T_STRAFE_R, 1}, {T_REVERSE, 350}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_REVERSE, 350},
+    {T_GRAB_SAND}
+    #endif
+
+    #if defined(REVERSE) && defined(DO_BOTTOM)
+    , {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_STRAFE_R, 1}, {T_REVERSE, 450}, {T_FORWARD, 2}, {T_STRAFE_R, 1}, {T_REVERSE, 450}, {T_FORWARD, 1},
+    {T_TURN_CW, 1}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 2}, 
+    {T_TURN_CW, 90}, {T_FORWARD, 4}, {T_TURN_CCW, 90}, {T_FORWARD, 2}, {T_TURN_CCW, 90}
+    #endif
+
+    #if defined(DO_TOP) && defined(DO_BOTTOM) && defined(REVERSE)
+    , {T_RAMP, true}
+    #endif
+
+    #if defined(REVERSE) && defined(DO_TOP)
+    #ifdef DO_BOTTOM
+    , {T_TURN_CCW, 90}
+    #else
+    , {T_TURN_CW, 90}
+    #endif
+    , {T_FORWARD, 4}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 4}
+    #endif
+
+    };
 
 // std::vector<std::vector<int>> commands{{T_BACKWARD, 1}};
 
@@ -265,21 +309,35 @@ void task_grab_sand() {
     claw_servo.attach(3);
 
     robot_move(RB_FORWARD);
-    delay(800);
+    delay(1500);
     robot_move(RB_STOP);
 
-    claw_servo.write(80);
+    delay(500);
+
+    claw_servo.write(120);
+
+    delay(500);
 
     robot_move(RB_BACKWARD);
-    delay(800);
+    delay(1200);
     robot_move(RB_STOP);
 
     claw_servo.detach();
 
 }   
 
-void task_ramp() {
-    robot_move(RB_LEFT);
+void task_ramp(bool reverse = false) {
+    ROBOT_DIR turn_dir = RB_TURN_CW;
+    ROBOT_DIR wall_dir = RB_LEFT;
+    ROBOT_DIR fix_dir = RB_RIGHT;
+
+    if (reverse) {
+        turn_dir = RB_TURN_CC;
+        wall_dir = RB_RIGHT;
+        fix_dir = RB_LEFT;
+    }
+
+    robot_move(wall_dir);
     delay(200);
     robot_move(RB_STOP);
 
@@ -293,7 +351,7 @@ void task_ramp() {
 
     task_move(RB_FORWARD, 15);
 
-    task_rotate(RB_TURN_CW, 90);
+    task_rotate(turn_dir, 90);
 
     robot_move(RB_FORWARD);
     delay(2000);
@@ -301,13 +359,13 @@ void task_ramp() {
 
     task_move(RB_FORWARD, 15);
 
-    task_rotate(RB_TURN_CW, 90);
+    task_rotate(turn_dir, 90);
 
     task_move(RB_FORWARD, 15);
 
     delay(50);
 
-    robot_move(RB_LEFT);
+    robot_move(wall_dir);
     delay(200);
     robot_move(RB_STOP);
 
@@ -315,10 +373,11 @@ void task_ramp() {
 
     // heading = get_rotation();
 
-    robot_move(RB_RIGHT);
+    robot_move(fix_dir);
     delay(200);
     robot_move(RB_STOP);
 }
+
 
 void navigate_maze() {
     int offset = 0;
@@ -351,13 +410,55 @@ void navigate_maze() {
                 task_grab_sand();
                 break;
             case(T_RAMP):
-                task_ramp();
+                if (command.size() > 1) {
+                    task_ramp(command.at(1));
+                } else{
+                    task_ramp();
+                }
+                
+                break;
+            case(T_REVERSE):
+                robot_move(RB_BACKWARD);
+                delay(command.at(1));
+                robot_move(RB_STOP);
+                break;
+            default:
                 break;
         }
         delay(50);
     }
-    auto command = commands.at(0);
-    for (int i = commands.size()-1; i >= 0; --i) {
+
+    #ifdef REVERSE_AUTO
+    auto command = commands.at(commands.size() - 1);
+    switch(command.at(0)) {
+        case(T_FORWARD):
+            task_move(RB_FORWARD, command.at(1), offset);
+            break;
+        case(T_BACKWARD):
+            task_move(RB_BACKWARD, command.at(1), offset);
+            break;
+        case(T_STRAFE_L):
+            task_strafe(RB_LEFT, command.at(1), offset);
+            break;
+        case(T_STRAFE_R):
+            task_strafe(RB_RIGHT, command.at(1), offset);
+            break;
+        case(T_TURN_CCW):
+            task_rotate(RB_TURN_CC, command.at(1));
+            break;
+        case(T_TURN_CW):
+            task_rotate(RB_TURN_CW, command.at(1));
+            break;
+        case(T_GRAB_SAND):
+            break;
+        case(T_RAMP):
+            task_ramp();
+            break;
+        default:
+            break;
+    }    
+
+    for (int i = commands.size()-2; i >= 0; --i) {
         command = commands.at(i);
         if (command.size() > 2) {
             offset = command.at(2);
@@ -366,10 +467,10 @@ void navigate_maze() {
         }
         switch(command.at(0)) {
             case(T_FORWARD):
-                task_move(RB_BACKWARD, command.at(1), offset);
+                task_move(RB_FORWARD, command.at(1), offset);
                 break;
             case(T_BACKWARD):
-                task_move(RB_FORWARD, command.at(1), offset);
+                task_move(RB_BACKWARD, command.at(1), offset);
                 break;
             case(T_STRAFE_L):
                 task_strafe(RB_LEFT, command.at(1), offset);
@@ -388,9 +489,12 @@ void navigate_maze() {
             case(T_RAMP):
                 task_ramp();
                 break;
+            default:
+                break;
         }
         delay(50);
     }
+    #endif
     
 }
 

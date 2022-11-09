@@ -79,7 +79,9 @@ enum TASK_COMMANDS {
     T_TURN_CW,
     T_TURN_CCW,
     T_GRAB_SAND,
-    T_RAMP
+    T_RAMP,
+    T_REVERSE,
+    T_RAMP_REVERSE
 };
 
 /**

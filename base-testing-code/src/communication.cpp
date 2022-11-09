@@ -27,9 +27,10 @@ LoRa_E220 e220ttl(&Serial3, 30, 29, 28);
 struct joystick joystick_com = {(uint16_t)(max_analog/2), (uint16_t)(max_analog/2), false};
 bool old_button = false;
 
-#ifdef USE_NFC
+
 char output[50];
 
+#ifdef USE_NFC
 String uri;
 extern bool TEST_FRONT_TOF;
 extern bool TEST_LEFT_TOF;

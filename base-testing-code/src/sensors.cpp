@@ -130,7 +130,8 @@ void setup_sensors() {
 
     #endif
 
-
+    Wire.begin();
+    
     TOF_left.begin();
     TOF_left.VL53L4CD_Off();
 
