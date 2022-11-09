@@ -36,22 +36,30 @@ extern bool TEST_FRONT_TOF;
 extern bool TEST_LEFT_TOF;
 void robot_stop();
 
-
+/**
+ * @brief Read the NFC buffer if available, and call commands associated
+ * 
+ */
 void nfc_read_call() {
 	char uri_c[20];
-
+	// Write to buffer to clear any previous commands
 	st25dv.writeURI(URI_ID_0x0D_STRING, "NULL", "");
 	while(true) {
-
+		// Read buffer
 		st25dv.readURI(&uri);
 
+		// If it is the null-string, then continue, no commands
+		// have been recieved
 		if (strcmp(uri.c_str(), "ftp://NULL") == 0) {
 			continue;
 		}
 		
+		// Copy into string and remove ftp:// section that is required for 
+		// the library to function since it is made for urls
 		strcpy(uri_c, uri.c_str());
 		memmove(uri_c, uri_c+strlen(URI_ID_0x0D_STRING), strlen(uri_c));
 
+		// Compare to task strings and call functions based on those
 		if (strcmp(uri_c, STR_RB_START_STOP) == 0) {
 			Serial.println("here");
 			navigate_maze();
@@ -63,11 +71,17 @@ void nfc_read_call() {
 			test_TOF();
 		}
 		
+		// Re-write buffer
 		st25dv.writeURI(URI_ID_0x0D_STRING, "NULL", "");
 		delay(200);
 	}
 }
 
+/**
+ * @brief Can delay while reading NFC if available, incomplete
+ * 
+ * @param millis Number of millis to sleep
+ */
 void nfc_delay(long long millis) {
 	st25dv.readURI(&uri);
 

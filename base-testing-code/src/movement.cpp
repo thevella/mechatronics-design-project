@@ -44,10 +44,6 @@ uint16_t robot_acceleration = 20;
 using namespace ace_routine;
 #endif
 
-// std::vector<std::vector<int>> commands {{T_STRAFE_L, 3}, {T_BACKWARD, 3, -10}, {T_STRAFE_R, 3}, {T_BACKWARD, 3, 40}, {T_TURN_CCW, 90}, {T_RAMP}, 
-//                                         {T_STRAFE_R, 1, 50}, {T_BACKWARD, 3}, {T_STRAFE_R, 1}, {T_FORWARD, 1}, {T_STRAFE_R, 1}, {T_BACKWARD, 1},
-//                                         {T_STRAFE_R, 1}, {T_BACKWARD, 1}, {T_STRAFE_R, 1}};
-
 //#define REVERSE_AUTO
 #define REVERSE
 
@@ -70,6 +66,9 @@ using namespace ace_routine;
     #endif
 #endif
 
+// Commands, Structured using defines so that individual sections
+// of the map can be done individually instead of having to do
+// the whole run to test
 std::vector<std::vector<int>> commands {
     #if defined(DO_TOP)
     {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_BACKWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}
@@ -107,23 +106,26 @@ std::vector<std::vector<int>> commands {
 
     };
 
-// std::vector<std::vector<int>> commands{{T_BACKWARD, 1}};
-
-// std::vector<std::vector<int>> commands {{T_TURN_CW, 90}};
-
 float heading = 0.0;
 
+/**
+ * @brief Correct heading if gyro is available
+ * 
+ */
 void correct_heading() {
 #ifdef USE_GYRO
     float output = 0;
     float target = 0;
     ROBOT_DIR dir;
 
+    // Get the current rotation
     output = get_rotation();
 
+    // The target is the saved heading
     target = heading;
 
     do {
+        // Turn towards the target value
         if (deg_difference(output, heading) < 0) {
             dir = RB_TURN_CC;
         } else {
@@ -138,20 +140,33 @@ void correct_heading() {
 
     robot_move(RB_STOP);
 #else
+    // If no gyro available, do nothing
     return;
 #endif
 }
 
+/**
+ * @brief Strafe right or left correcting position as it moves
+ * 
+ * @param dir     direction to move
+ * @param squares number of squares to move
+ * @param offset  if an offset is needed for manual correction
+ */
 void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
     int output = 0;
     int output2 = 0;
     int target = 0;
+
+    // Read the sensor to get initial reading
     read_TOF_front(&output);
 
     bool move = false;
     
+    // If we are pover 900 mm away, we do not read correctly,
+    // move closer to a calibrated distance
     if (output > 900 && false) {
         while (abs(output - 865) > 3) {
+            // Only move if one of the sensors is returning valid data
             move = move || read_TOF_left(&output2);
             if (move) {
                 robot_move(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
@@ -166,7 +181,7 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
         --squares;
     }
     
-
+    // If moving towards sensor, subtract distance, otherwise add it
     if (dir == RB_FORWARD) {
         target = output - (squares * MM_TO_SQUARES_F - (squares - 1) * MM_TO_SQUARES_F_CORR) - offset;
         if (target < MM_TO_SQUARES_FB_OFF) {
@@ -182,14 +197,19 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
     int correction = 0;
     if (squares != 0) {
         do {
+            // Only move if one of the sensors returned valid data
             move = move || read_TOF_left(&output2);
             if (move) {
+                // If our correction value is valid, then use it,
+                // otherwise we are on an open square, so don't
+                // apply recentering
                 if (output2 < 200) {
                     correction = output2 - MM_TO_SQUARES_LR_OFF;
                 } else {
                     correction = 0;
                 }
 
+                // Move towards the target value
                 if (output - target < 0 && dir == RB_FORWARD) {
                     robot_move(RB_BACKWARD, 0, correction);
                 } else if (output - target > 0 && dir == RB_BACKWARD) {
@@ -207,23 +227,36 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
         } while (abs(output - target) > 3);
     }
     
+    // Stop robot
     robot_move(RB_STOP);
 
+    // Correct heading if gyro available
     correct_heading();
 }
 
+/**
+ * @brief Strafe right or left correcting position as it moves,
+ *          almost identical to task_move
+ * 
+ * @param dir     direction to move
+ * @param squares number of squares to move
+ * @param offset  if an offset is needed for manual correction
+ */
 void task_strafe(ROBOT_DIR dir, int squares, int offset = 0) {
     int output = 0;
     int target = 0;
     int output2 = 0;
 
-
+    // Read the sensor to get initial reading
     read_TOF_left(&output);
 
     bool move = false;
     
+    // If we are pover 900 mm away, we do not read correctly,
+    // move closer to a calibrated distance
     if (output > 900) {
         while (abs(output - 865) > 3) {
+            // Only move if one of the sensors is returning valid data
             move = move || read_TOF_front(&output2);
             if (move) {
                 robot_move(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
@@ -236,9 +269,10 @@ void task_strafe(ROBOT_DIR dir, int squares, int offset = 0) {
         --squares;
     }
     
-
+    // If moving towards sensor, subtract distance, otherwise add it
     if (dir == RB_LEFT) {
         target = output - (squares * MM_TO_SQUARES_L + (squares - 1) * MM_TO_SQUARES_L_CORR) - offset;
+        // If we are less than the minimum, move to the value used for centering
         if (target < MM_TO_SQUARES_LR_OFF) {
             target = MM_TO_SQUARES_LR_OFF;
         }
@@ -248,16 +282,22 @@ void task_strafe(ROBOT_DIR dir, int squares, int offset = 0) {
     
     move = false;
     int correction = 0;
+    // Only move if we are to move more than one square
     if (squares != 0) {
         do {
+            // Only move if one of the sensors returned valid data
             move = move || read_TOF_front(&output2);
             if (move) {
+                // If our correction value is valid, then use it,
+                // otherwise we are on an open square, so don't
+                // apply recentering
                 if (output2 < 200) {
                     correction = output2 - MM_TO_SQUARES_LR_OFF;
                 } else {
                     correction = 0;
                 }
 
+                // Move towards the target value
                 if (output - target < 0 && dir == RB_LEFT) {
                     robot_move(RB_RIGHT, 0, correction);
                 } else if (output - target > 0 && dir == RB_RIGHT) {
@@ -272,11 +312,19 @@ void task_strafe(ROBOT_DIR dir, int squares, int offset = 0) {
         } while (abs(output - target) > 3);
     }
     
+    // Stop robot
     robot_move(RB_STOP);
     
+    // Correct heading if gyro available
     correct_heading();
 }
 
+/**
+ * @brief Turn robot using gyro if available
+ * 
+ * @param dir Turn clockwise of counter-clockwise
+ * @param deg Number of degrees to turn, only used when using gyro
+ */
 void task_rotate(ROBOT_DIR dir, double deg) {
 
 #ifdef USE_GYRO
@@ -304,6 +352,11 @@ void task_rotate(ROBOT_DIR dir, double deg) {
 #endif
 }
 
+/**
+ * @brief Task to grab sand since the dist sensor is occluded by the
+ *          gripper mechanism when open
+ * 
+ */
 void task_grab_sand() {
     claw_servo.write(0);
     claw_servo.attach(3);
@@ -326,7 +379,15 @@ void task_grab_sand() {
 
 }   
 
+/**
+ * @brief Do the ramp as a manual function, since looking over the edge could
+ *          return invalid data
+ * 
+ * @param reverse Whether we are traveling up the ramp
+ */
 void task_ramp(bool reverse = false) {
+    // Reverse turing dir and correction side
+    // if going up
     ROBOT_DIR turn_dir = RB_TURN_CW;
     ROBOT_DIR wall_dir = RB_LEFT;
     ROBOT_DIR fix_dir = RB_RIGHT;
@@ -371,16 +432,18 @@ void task_ramp(bool reverse = false) {
 
     delay(300);
 
-    // heading = get_rotation();
-
     robot_move(fix_dir);
     delay(200);
     robot_move(RB_STOP);
 }
 
-
+/**
+ * @brief Iterate through tasks and operate
+ * 
+ */
 void navigate_maze() {
     int offset = 0;
+    // Iterate through tasks
     for (auto command: commands) {
         if (command.size() > 2) {
             offset = command.at(2);

@@ -130,19 +130,25 @@ void setup_sensors() {
 
     #endif
 
+    // Have to start wire since we are not using gyro
     Wire.begin();
     
+    // Turn off sensor with shutoff wired
+    // Needed to change address of other sensor
     TOF_left.begin();
     TOF_left.VL53L4CD_Off();
 
+    // Delays to wait for operation to complete
     delay(1000);
 
+    // Begin other sensor and change address
     TOF_front.begin();
     TOF_front.InitSensor();
     TOF_front.VL53L4CD_SetI2CAddress(0x54);
     
     delay(1000);
     
+    // Set the range timings for those that worked best through testing
     TOF_front.VL53L4CD_SetRangeTiming(125, 50);
     TOF_front.VL53L4CD_StartRanging();
     
@@ -157,6 +163,10 @@ void setup_sensors() {
 
 }
 
+/**
+ * @brief Test TOF sensor and output to screen
+ * 
+ */
 void test_TOF() {
     int dist = 0;
     bool status = false;
@@ -194,15 +204,24 @@ void test_TOF() {
     
 }
 
-
+/**
+ * @brief Read the passed TOF sensor
+ * 
+ * @param sensor      the sensor to read as a pointer
+ * @param output      value to write to
+ * @param status_out  actual error value if passed
+ * @return true       sensor values are reported good
+ * @return false      sensor values are reported bad
+ */
 bool read_tof(VL53L4CD* sensor, int* output, int* status_out = nullptr) {
     uint8_t NewDataReady = 0;
     VL53L4CD_Result_t results;
     uint8_t status;
 
-    
+    // Check if data is available
     status = sensor->VL53L4CD_CheckForDataReady(&NewDataReady);
     
+    // Write status if it was passed
     if (status_out != nullptr) {
         *status_out = status;
     }
@@ -218,22 +237,42 @@ bool read_tof(VL53L4CD* sensor, int* output, int* status_out = nullptr) {
         // Read measured distance. RangeStatus = 0 means valid data
         sensor->VL53L4CD_GetResult(&results);
 
+        // Set output
         *output = results.distance_mm;
 
         if (results.range_status != 0) {
+            // Write status if it was passed
+            if (status_out != nullptr) {
+                *status_out = results.range_status;
+            }
             return false;
         }
 
-        
         return true;
     }
     return false;
 }
 
+/**
+ * @brief Read front sensor
+ * 
+ * @param output      value to write to
+ * @param status_out  actual error value if passed
+ * @return true       sensor values are reported good
+ * @return false      sensor values are reported bad
+ */
 bool read_TOF_front(int* output, int* status) {
     return read_tof(&TOF_front, output, status);
 }
 
+/**
+ * @brief Read left sensor
+ * 
+ * @param output      value to write to
+ * @param status_out  actual error value if passed
+ * @return true       sensor values are reported good
+ * @return false      sensor values are reported bad
+ */
 bool read_TOF_left(int* output, int* status) {
     return read_tof(&TOF_left, output, status);
 }
@@ -283,9 +322,17 @@ float get_rotation() {
     return 360 - imu.yaw;
 }
 
+/**
+ * @brief Return difference between two deg values within -180 to 180
+ * 
+ * @param current current reading
+ * @param target  target value
+ * @return float  bound difference
+ */
 float deg_difference(float current, float target) {
     float diff = target - current;
 
+    // If more than 360, remove until within range
     while(diff > 360) {
         diff = diff - 360;
     }
@@ -294,6 +341,7 @@ float deg_difference(float current, float target) {
         diff = diff + 360;
     }
 
+    // normalize between 180 and -180
     if (diff > 180) {
         diff = diff - 360;
     } else if (diff < -180) {

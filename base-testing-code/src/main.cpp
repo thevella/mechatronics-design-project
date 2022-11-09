@@ -49,7 +49,7 @@ void loop() {
 
     navigate_maze();
 
-    while(true){Serial.print("FAILED");}
+    while(true){}
 
    
 }
