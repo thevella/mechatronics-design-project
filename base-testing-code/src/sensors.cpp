@@ -1,5 +1,8 @@
 #include "sensors.h"
+
+#ifdef USE_SCHEDULING
 #include <AceRoutine.h>
+#endif
 
 #define reverse_sensor
 
@@ -39,6 +42,7 @@ const uint8_t MOTOR_ENC_PINS[4][2] = {*MOTOR_FR_ENC_PINS, *MOTOR_FL_ENC_PINS, *M
 volatile struct encoders enc = {0, 0, 0, 0};
 #endif
 
+#ifdef USE_IR
 // Distance Sensors definition
 const uint8_t distance_sensors[][2] = {{A0, 13}, {A1, 13}, {A2, 13}, {A3, 13}};
 const uint8_t num_dist_sensors = 3;
@@ -59,7 +63,7 @@ dist_sensor dist_left(DIST_LEFT);
 dist_sensor dist_right(DIST_RIGHT);
 dist_sensor dist_front(DIST_FRONT);
 // dist_sensor dist_back(DIST_BACK);
-
+#endif
 
 VL53L4CD TOF_left(&Wire, 52);
 VL53L4CD TOF_front(&Wire, 53);
@@ -121,12 +125,13 @@ void setup_sensors() {
 
     for (int i = 0; i < 10; ++i) {
         get_rotation();
+        delay(50);
     }
 
     #endif
 
-
-
+    Wire.begin();
+    
     TOF_left.begin();
     TOF_left.VL53L4CD_Off();
 
@@ -150,6 +155,43 @@ void setup_sensors() {
 
     delay(2000);
 
+}
+
+void test_TOF() {
+    int dist = 0;
+    bool status = false;
+    bool printed = false;
+
+    TEST_FRONT_TOF = true;
+    TEST_LEFT_TOF = true;
+
+    if (TEST_FRONT_TOF) {
+        status = read_TOF_front(&dist);
+
+        if (status) {
+            Serial.print("FRONT: ");
+            Serial.print(dist);
+            Serial.print(" ");
+            printed = true;
+        }
+
+        
+    }
+
+    if (TEST_LEFT_TOF) {
+        status = read_TOF_left(&dist);
+
+        if (status) {
+            Serial.print("LEFT: ");
+            Serial.print(dist);
+            printed = true;
+        }
+    }
+
+    if (printed) {
+        Serial.println("");
+    }
+    
 }
 
 
@@ -176,13 +218,16 @@ bool read_tof(VL53L4CD* sensor, int* output, int* status_out = nullptr) {
         // Read measured distance. RangeStatus = 0 means valid data
         sensor->VL53L4CD_GetResult(&results);
 
+        *output = results.distance_mm;
+
         if (results.range_status != 0) {
             return false;
         }
 
-        *output = results.distance_mm;
+        
         return true;
     }
+    return false;
 }
 
 bool read_TOF_front(int* output, int* status) {
@@ -193,7 +238,7 @@ bool read_TOF_left(int* output, int* status) {
     return read_tof(&TOF_left, output, status);
 }
 
-
+#ifdef USE_IR
 /**
  * @brief           Construct a new dist sensor::dist sensor object
  * 
@@ -224,7 +269,7 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
     this->cal_values[0] = val1;
     this->cal_values[1] = val2;
 }
-
+#endif
 
 #ifdef USE_GYRO
 /**
@@ -233,7 +278,7 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
  * @return float    Rotation in deg, bound to range of -180 to 180
  */
 float get_rotation() {
-    update_gyro();
+    while (!update_gyro()) delay(10);
 
     return 360 - imu.yaw;
 }
@@ -254,6 +299,13 @@ float deg_difference(float current, float target) {
     } else if (diff < -180) {
         diff = diff + 360;
     }
+
+    Serial.print("Current: ");
+    Serial.print(current);
+    Serial.print(" Target: ");
+    Serial.print(target);
+    Serial.print(" Diff: ");
+    Serial.println(diff);
 
     return diff;
 }

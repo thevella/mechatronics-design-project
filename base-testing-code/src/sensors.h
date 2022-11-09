@@ -35,19 +35,20 @@ extern const uint8_t MOTOR_RR_ENC_PINS[];
 extern volatile struct encoders enc;
 #endif
 
+extern int target_deg;
+
 #define DIST_VAL   0
 #define DIST_GPIO  1
 
 
-extern int target_deg;
 bool read_TOF_front(int* output, int* status = nullptr);
 bool read_TOF_left(int* output, int* status = nullptr);
-
+void test_TOF();
 
 extern bool TEST_FRONT_TOF;
 extern bool TEST_LEFT_TOF;
 
-
+#ifdef USE_IR
 class dist_sensor {
 	
 public:
@@ -156,7 +157,7 @@ extern dist_sensor dist_left;
 extern dist_sensor dist_right;
 extern dist_sensor dist_front;
 extern dist_sensor dist_back;
-
+#endif
 
 
 extern const uint16_t joystick_deadzone;

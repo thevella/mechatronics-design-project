@@ -3,10 +3,6 @@
 #include <ArxContainer.h>
 #include <math.h>
 
-#ifdef USE_PID_ROTATE
-#include <PID_v1.h>
-#include <pid.h>
-#endif
 
 // How long to let the motors settle to ensure robot has stopped
 int motor_stop_delay = 250;
@@ -44,45 +40,109 @@ uint16_t max_speed = 3800;
 int16_t cur_speed = 0;
 uint16_t robot_acceleration = 20;
 
-// Constants for calibrating the speed of the motors,
-// for some reason the encoders are not reliable.
-// Possibly due to number of interrupts from 4 motors
-// allowing some to be missed
-#define MOTOR_FR_CONSTANT (double)1.0
-#define MOTOR_FL_CONSTANT ((double)1.00)
-#define MOTOR_RL_CONSTANT ((double)1.04)
-#define MOTOR_RR_CONSTANT ((double)1.06)
-
-#ifdef USE_PID_ROTATE
-// Variables for PID use
-double pid_rot_input=80, pid_rot_output=50, pid_rot_setpoint=180;
-double pid_rot_kp=5, pid_rot_ki=0.5, pid_rot_kd=2;
-
-#define PID_LIM_MIN -max_speed /* Limit for PWM. */
-#define PID_LIM_MAX max_speed /* Limit for PWM. */
-#define DEADBAND 0.0f /* Off==0 */
-
-// PID Object
-epid_t pid_rot;
-
-//Define Variables we'll be connecting to
-float Input;
-int Output = 0;
-float deadband_delta;
-
-
-PID turning_pid(&pid_rot_input, &pid_rot_output, &pid_rot_setpoint, pid_rot_kp, pid_rot_ki, pid_rot_kd, DIRECT);
+#ifdef USE_SCHEDULING
+using namespace ace_routine;
 #endif
 
-void calibrate_center(CENTER_TYPE);
+// std::vector<std::vector<int>> commands {{T_STRAFE_L, 3}, {T_BACKWARD, 3, -10}, {T_STRAFE_R, 3}, {T_BACKWARD, 3, 40}, {T_TURN_CCW, 90}, {T_RAMP}, 
+//                                         {T_STRAFE_R, 1, 50}, {T_BACKWARD, 3}, {T_STRAFE_R, 1}, {T_FORWARD, 1}, {T_STRAFE_R, 1}, {T_BACKWARD, 1},
+//                                         {T_STRAFE_R, 1}, {T_BACKWARD, 1}, {T_STRAFE_R, 1}};
 
-using namespace ace_routine;
+//#define REVERSE_AUTO
+#define REVERSE
 
-std::vector<std::vector<int>> commands {{T_FORWARD, 1}};
+#if defined(REVERSE) && defined(REVERSE_AUTO)
+#warning Overriding auto reverse
+#undef REVERSE_AUTO
+#endif
 
-int16_t heading = 0;
+#define DO_BOTTOM
+//#define DO_TOP
+#define DO_ALL
 
-int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
+#ifdef DO_ALL
+    #ifndef DO_TOP
+        #define DO_TOP
+    #endif
+
+    #ifndef DO_BOTTOM
+        #define DO_BOTTOM
+    #endif
+#endif
+
+std::vector<std::vector<int>> commands {
+    #if defined(DO_TOP)
+    {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_BACKWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}
+    #endif
+
+    #if defined(DO_TOP) && defined(DO_BOTTOM)
+    , {T_RAMP},
+    #endif
+
+    #if defined(DO_BOTTOM)
+    {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, 
+    {T_FORWARD, 1}, {T_TURN_CCW, 90}, /**/ {T_BACKWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, 
+    {T_STRAFE_R, 1}, {T_REVERSE, 350}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_REVERSE, 350},
+    {T_GRAB_SAND}
+    #endif
+
+    #if defined(REVERSE) && defined(DO_BOTTOM)
+    , {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_STRAFE_R, 1}, {T_REVERSE, 450}, {T_FORWARD, 2}, {T_STRAFE_R, 1}, {T_REVERSE, 450}, {T_FORWARD, 1},
+    {T_TURN_CW, 1}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 2}, 
+    {T_TURN_CW, 90}, {T_FORWARD, 4}, {T_TURN_CCW, 90}, {T_FORWARD, 2}, {T_TURN_CCW, 90}
+    #endif
+
+    #if defined(DO_TOP) && defined(DO_BOTTOM) && defined(REVERSE)
+    , {T_RAMP, true}
+    #endif
+
+    #if defined(REVERSE) && defined(DO_TOP)
+    #ifdef DO_BOTTOM
+    , {T_TURN_CCW, 90}
+    #else
+    , {T_TURN_CW, 90}
+    #endif
+    , {T_FORWARD, 4}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 4}
+    #endif
+
+    };
+
+// std::vector<std::vector<int>> commands{{T_BACKWARD, 1}};
+
+// std::vector<std::vector<int>> commands {{T_TURN_CW, 90}};
+
+float heading = 0.0;
+
+void correct_heading() {
+#ifdef USE_GYRO
+    float output = 0;
+    float target = 0;
+    ROBOT_DIR dir;
+
+    output = get_rotation();
+
+    target = heading;
+
+    do {
+        if (deg_difference(output, heading) < 0) {
+            dir = RB_TURN_CC;
+        } else {
+            dir = RB_TURN_CW;
+        }
+        robot_rotation(dir, 1500);
+        
+        output = get_rotation();
+    } while (abs(deg_difference(output, target)) > 2);
+
+    heading = target;
+
+    robot_move(RB_STOP);
+#else
+    return;
+#endif
+}
+
+void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
     int output = 0;
     int output2 = 0;
     int target = 0;
@@ -90,14 +150,16 @@ int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
 
     bool move = false;
     
-    if (output > 900) {
+    if (output > 900 && false) {
         while (abs(output - 865) > 3) {
             move = move || read_TOF_left(&output2);
             if (move) {
-                robot_move_(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
+                robot_move(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
+            } else {
+                robot_move(RB_STOP);
             }
             move = false;
-            COROUTINE_DELAY(25);
+            delay(25);
             move = read_TOF_front(&output);
         }
 
@@ -106,36 +168,51 @@ int MovementCoroutine::task_move(ROBOT_DIR dir, int squares) {
     
 
     if (dir == RB_FORWARD) {
-        target = output - (squares * MM_TO_SQUARES_FB - (squares - 1) * MM_TO_SQUARES_FB_CORR);
+        target = output - (squares * MM_TO_SQUARES_F - (squares - 1) * MM_TO_SQUARES_F_CORR) - offset;
         if (target < MM_TO_SQUARES_FB_OFF) {
             target = MM_TO_SQUARES_FB_OFF;
         }
     } else if (dir == RB_BACKWARD) {
-        target = output + (squares * MM_TO_SQUARES_FB + (squares - 1) * MM_TO_SQUARES_FB_CORR);
-        target = target - (target % MM_TO_SQUARES_FB) + MM_TO_SQUARES_FB_OFF;
+        target = output + (squares * MM_TO_SQUARES_B + (squares - 1) * MM_TO_SQUARES_B_CORR) + offset;
     }
 
     
     
     move = false;
-
+    int correction = 0;
     if (squares != 0) {
         do {
             move = move || read_TOF_left(&output2);
             if (move) {
-                robot_move_(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
+                if (output2 < 200) {
+                    correction = output2 - MM_TO_SQUARES_LR_OFF;
+                } else {
+                    correction = 0;
+                }
+
+                if (output - target < 0 && dir == RB_FORWARD) {
+                    robot_move(RB_BACKWARD, 0, correction);
+                } else if (output - target > 0 && dir == RB_BACKWARD) {
+                    robot_move(RB_FORWARD, 0, correction);
+                } else {
+                    robot_move(dir, 0, correction);
+                }
+                
+            } else {
+                robot_move(RB_STOP);
             }
             move = false;
-            COROUTINE_DELAY(25);
+            delay(25);
             move = read_TOF_front(&output);
         } while (abs(output - target) > 3);
     }
     
     robot_move(RB_STOP);
-    return 0;
+
+    correct_heading();
 }
 
-int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
+void task_strafe(ROBOT_DIR dir, int squares, int offset = 0) {
     int output = 0;
     int target = 0;
     int output2 = 0;
@@ -149,10 +226,10 @@ int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
         while (abs(output - 865) > 3) {
             move = move || read_TOF_front(&output2);
             if (move) {
-                robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
+                robot_move(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
             }
             move = false;
-            COROUTINE_DELAY(25);
+            delay(25);
             move = read_TOF_left(&output);
         }
 
@@ -161,92 +238,265 @@ int MovementCoroutine::task_strafe(ROBOT_DIR dir, int squares) {
     
 
     if (dir == RB_LEFT) {
-        target = output - (squares * MM_TO_SQUARES_LR - (squares - 1) * MM_TO_SQUARES_LR_CORR);
+        target = output - (squares * MM_TO_SQUARES_L + (squares - 1) * MM_TO_SQUARES_L_CORR) - offset;
         if (target < MM_TO_SQUARES_LR_OFF) {
             target = MM_TO_SQUARES_LR_OFF;
         }
     } else if (dir == RB_RIGHT) {
-        target = output + (squares * MM_TO_SQUARES_LR + (squares - 1) * MM_TO_SQUARES_LR_CORR);
-        target = target - (target % MM_TO_SQUARES_LR) + MM_TO_SQUARES_LR_OFF;
+        target = output + (squares * MM_TO_SQUARES_R + (squares - 1) * MM_TO_SQUARES_R_CORR) + offset;
     }
     
     move = false;
-
+    int correction = 0;
     if (squares != 0) {
         do {
             move = move || read_TOF_front(&output2);
             if (move) {
-                robot_move_(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
+                if (output2 < 200) {
+                    correction = output2 - MM_TO_SQUARES_LR_OFF;
+                } else {
+                    correction = 0;
+                }
+
+                if (output - target < 0 && dir == RB_LEFT) {
+                    robot_move(RB_RIGHT, 0, correction);
+                } else if (output - target > 0 && dir == RB_RIGHT) {
+                    robot_move(RB_LEFT, 0, correction);
+                } else {
+                    robot_move(dir, 0, correction);
+                }
             }
             move = false;
-            COROUTINE_DELAY(25);
+            delay(25);
             move = read_TOF_left(&output);
         } while (abs(output - target) > 3);
     }
     
     robot_move(RB_STOP);
-    return 0;
+    
+    correct_heading();
 }
 
-int MovementCoroutine::task_rotate(ROBOT_DIR dir, float deg) {
-    float output = 0;
-    float target = 0;
+void task_rotate(ROBOT_DIR dir, double deg) {
 
-    output = get_rotation();
-
+#ifdef USE_GYRO
     if (dir == RB_TURN_CW) {
-        target = add_degrees(output, deg);
+        heading = add_degrees(heading, deg);
     } else if (dir == RB_TURN_CC) {
-        target = add_degrees(output, -deg);
+        heading = add_degrees(heading, -deg);
     }
 
-    do {
-        robot_move(dir);
-        COROUTINE_DELAY(50);
+    while (abs(deg_difference(output, target)) > 3) {
+        if (deg_difference(output, target) < 0 && )
+        robot_rotation(dir, 4096/2);
+        delay(50);
         output = get_rotation();
-    } while (deg_difference(output, target) > 3);
+    } 
 
-    heading = target;
+#else
+    robot_rotation(dir);
 
-    robot_move(RB_STOP); 
-    return 0;
+    delay(700);
+
+    robot_move(RB_STOP);
+
+    correct_heading();
+#endif
 }
 
-int MovementCoroutine::task_grab_sand() {
-    return 0;
+void task_grab_sand() {
+    claw_servo.write(0);
+    claw_servo.attach(3);
+
+    robot_move(RB_FORWARD);
+    delay(1500);
+    robot_move(RB_STOP);
+
+    delay(500);
+
+    claw_servo.write(120);
+
+    delay(500);
+
+    robot_move(RB_BACKWARD);
+    delay(1200);
+    robot_move(RB_STOP);
+
+    claw_servo.detach();
+
 }   
 
-COROUTINE(MovementCoroutine, navigate_maze){
-    COROUTINE_LOOP() {
-        int output = 0;
-        for (auto command: commands) {
-            switch(command.at(0)) {
-                case(T_FORWARD):
-                    this->task_move(RB_FORWARD, command.at(1));
-                    break;
-                case(T_BACKWARD):
-                    this->task_move(RB_BACKWARD, command.at(1));
-                    break;
-                case(T_STRAFE_L):
-                    this->task_strafe(RB_LEFT, command.at(1));
-                    break;
-                case(T_STRAFE_R):
-                    this->task_strafe(RB_RIGHT, command.at(1));
-                    break;
-                case(T_TURN_CW):
-                    this->task_rotate(RB_TURN_CW, command.at(1));
-                    break;
-                case(T_TURN_CCW):
-                    this->task_rotate(RB_TURN_CC, command.at(1));
-                    break;
-                case(T_GRAB_SAND):
-                    this->task_grab_sand();
-                    break;
-            }
-            COROUTINE_DELAY(50);
-        }
+void task_ramp(bool reverse = false) {
+    ROBOT_DIR turn_dir = RB_TURN_CW;
+    ROBOT_DIR wall_dir = RB_LEFT;
+    ROBOT_DIR fix_dir = RB_RIGHT;
+
+    if (reverse) {
+        turn_dir = RB_TURN_CC;
+        wall_dir = RB_RIGHT;
+        fix_dir = RB_LEFT;
     }
-};
+
+    robot_move(wall_dir);
+    delay(200);
+    robot_move(RB_STOP);
+
+    delay(50);
+
+    robot_move(RB_FORWARD);
+    delay(2000);
+    robot_move(RB_STOP);
+    
+    delay(50);
+
+    task_move(RB_FORWARD, 15);
+
+    task_rotate(turn_dir, 90);
+
+    robot_move(RB_FORWARD);
+    delay(2000);
+    robot_move(RB_STOP);
+
+    task_move(RB_FORWARD, 15);
+
+    task_rotate(turn_dir, 90);
+
+    task_move(RB_FORWARD, 15);
+
+    delay(50);
+
+    robot_move(wall_dir);
+    delay(200);
+    robot_move(RB_STOP);
+
+    delay(300);
+
+    // heading = get_rotation();
+
+    robot_move(fix_dir);
+    delay(200);
+    robot_move(RB_STOP);
+}
+
+
+void navigate_maze() {
+    int offset = 0;
+    for (auto command: commands) {
+        if (command.size() > 2) {
+            offset = command.at(2);
+        } else {
+            offset = 0;
+        }
+        switch(command.at(0)) {
+            case(T_FORWARD):
+                task_move(RB_FORWARD, command.at(1), offset);
+                break;
+            case(T_BACKWARD):
+                task_move(RB_BACKWARD, command.at(1), offset);
+                break;
+            case(T_STRAFE_L):
+                task_strafe(RB_LEFT, command.at(1), offset);
+                break;
+            case(T_STRAFE_R):
+                task_strafe(RB_RIGHT, command.at(1), offset);
+                break;
+            case(T_TURN_CW):
+                task_rotate(RB_TURN_CW, command.at(1));
+                break;
+            case(T_TURN_CCW):
+                task_rotate(RB_TURN_CC, command.at(1));
+                break;
+            case(T_GRAB_SAND):
+                task_grab_sand();
+                break;
+            case(T_RAMP):
+                if (command.size() > 1) {
+                    task_ramp(command.at(1));
+                } else{
+                    task_ramp();
+                }
+                
+                break;
+            case(T_REVERSE):
+                robot_move(RB_BACKWARD);
+                delay(command.at(1));
+                robot_move(RB_STOP);
+                break;
+            default:
+                break;
+        }
+        delay(50);
+    }
+
+    #ifdef REVERSE_AUTO
+    auto command = commands.at(commands.size() - 1);
+    switch(command.at(0)) {
+        case(T_FORWARD):
+            task_move(RB_FORWARD, command.at(1), offset);
+            break;
+        case(T_BACKWARD):
+            task_move(RB_BACKWARD, command.at(1), offset);
+            break;
+        case(T_STRAFE_L):
+            task_strafe(RB_LEFT, command.at(1), offset);
+            break;
+        case(T_STRAFE_R):
+            task_strafe(RB_RIGHT, command.at(1), offset);
+            break;
+        case(T_TURN_CCW):
+            task_rotate(RB_TURN_CC, command.at(1));
+            break;
+        case(T_TURN_CW):
+            task_rotate(RB_TURN_CW, command.at(1));
+            break;
+        case(T_GRAB_SAND):
+            break;
+        case(T_RAMP):
+            task_ramp();
+            break;
+        default:
+            break;
+    }    
+
+    for (int i = commands.size()-2; i >= 0; --i) {
+        command = commands.at(i);
+        if (command.size() > 2) {
+            offset = command.at(2);
+        } else {
+            offset = 0;
+        }
+        switch(command.at(0)) {
+            case(T_FORWARD):
+                task_move(RB_FORWARD, command.at(1), offset);
+                break;
+            case(T_BACKWARD):
+                task_move(RB_BACKWARD, command.at(1), offset);
+                break;
+            case(T_STRAFE_L):
+                task_strafe(RB_LEFT, command.at(1), offset);
+                break;
+            case(T_STRAFE_R):
+                task_strafe(RB_RIGHT, command.at(1), offset);
+                break;
+            case(T_TURN_CW):
+                task_rotate(RB_TURN_CC, command.at(1));
+                break;
+            case(T_TURN_CCW):
+                task_rotate(RB_TURN_CW, command.at(1));
+                break;
+            case(T_GRAB_SAND):
+                break;
+            case(T_RAMP):
+                task_ramp();
+                break;
+            default:
+                break;
+        }
+        delay(50);
+    }
+    #endif
+    
+}
 
 void robot_stop() {
     for (int i = 0; i < 4; ++i) {
@@ -271,34 +521,13 @@ void setup_movement() {
     
     Serial.println("Motor Shield found.");
 
-    #ifdef USE_PID_ROTATE
-    #ifdef USE_GYRO
-    // Set target as 90deg from current position
-    pid_rot_setpoint = add_degrees(get_rotation(), (float)-90);
-    pid_rot_input = get_rotation();
-    #endif
+    // heading = get_rotation();
 
-    //Setup the pid 
-    turning_pid.SetMode(AUTOMATIC);
-    turning_pid.SetOutputLimits(PID_LIM_MIN, PID_LIM_MAX);
-
-    // Initialize pid object
-    epid_info_t pid_rot_err = epid_init(&pid_rot,
-        pid_rot_input, pid_rot_input, -max_speed,
-        pid_rot_kp, pid_rot_ki, pid_rot_kd);
-
-    if (pid_rot_err != EPID_ERR_NONE) {
-        Serial.print("\n\n** ERROR: epid_err != EPID_ERR_NONE **\n\n");
-        while (1) { ; }
-    }
-    #endif
-
-    heading = get_rotation();
-
-    
+#ifdef USE_IR
     // Setup the center position and calibrate side sensors
     // for distance
-    //calibrate_center(CENTER_L_R);
+    calibrate_center(CENTER_L_R);
+#endif
 }
 
 /**
@@ -340,8 +569,10 @@ void forward(int number, int16_t delay_offset, bool center, bool hard, bool on_r
                     robot_move(RB_STOP);
                     delay(motor_stop_delay);
                 }
-                // Call recenter 
+                // Call recenter
+                #ifdef USE_IR
                 recenter();
+                #endif
             } 
         }
     }
@@ -364,28 +595,14 @@ void forward(int number, int16_t delay_offset, bool center, bool hard, bool on_r
                 robot_move(RB_STOP);
                 delay(motor_stop_delay);
             }
+            #ifdef USE_IR
             recenter();
+            #endif
         }
     }
 }
 
-/**
- * @brief         Move forward until sensor threshold is reached
- * 
- * @param offset  Sensor offset threshold (ms)
- * @param speed   Speed at which to turn wheels 0-4095
- */
-void forward_sense(int offset, int speed) {
-    robot_move(RB_FORWARD, speed);
 
-    while (dist_front.raw_value() < offset) {
-        delay(10);
-    }
-
-    robot_move(RB_STOP);
-
-    delay(motor_stop_delay);
-}
 
 /**
  * @brief              Move back into the wall to reorient 
@@ -488,6 +705,28 @@ void grip_sand(){
     claw_servo.attach(10);
 }
 
+#ifdef USE_IR
+
+/**
+ * @brief         Move forward until sensor threshold is reached
+ *
+ * @param offset  Sensor offset threshold (ms)
+ * @param speed   Speed at which to turn wheels 0-4095
+ */
+void forward_sense(int offset, int speed)
+{
+    robot_move(RB_FORWARD, 0, 0, speed);
+
+    while (dist_front.raw_value() < offset)
+    {
+        delay(10);
+    }
+
+    robot_move(RB_STOP);
+
+    delay(motor_stop_delay);
+}
+
 /**
  * @brief Basic recentering algorithm using the light sensors
  * 
@@ -520,10 +759,10 @@ void recenter() {
         // Moving at decreased speed so as to not overshoot
         // target
         if (left > right) {
-            robot_move(RB_LEFT, max_speed/3);
+            robot_move(RB_LEFT, 0, 0, max_speed/3);
             Serial.println("moving left");
         } else {
-            robot_move(RB_RIGHT, max_speed/3);
+            robot_move(RB_RIGHT, 0, 0, max_speed/3);
             Serial.println("moving right");
         }
         delay(100);
@@ -534,18 +773,93 @@ void recenter() {
     delay(motor_stop_delay);
 }
 
-#ifdef USE_PID_ROTATE
-#ifdef USE_GYRO
 
-void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placement_correction, uint16_t speed) {
+/**
+ * @brief      Calibrate center by ramming the walls
+ *
+ * @param dir
+ *
+ * @details    Takes readings at the two known distances:
+ *              When the sensor is against the wall at almost 4cm,
+ *              and when the sensor is far from the wall
+ */
+void calibrate_center(CENTER_TYPE dir)
+{
+    uint16_t temp[2];
+
+    // Will eventually center forward and backwards
+    // so strafing is more possible
+    if (dir == CENTER_L_R)
+    {
+        // hit the right wall and take readings
+        int delay_val = 1600;
+        Serial.println("centering right");
+        uint16_t old_dist_val = dist_right.raw_value();
+        robot_move(RB_RIGHT, 0, 0, max_speed / 1.5);
+        delay(delay_val);
+
+        robot_move(RB_STOP);
+
+        delay(motor_stop_delay);
+
+        temp[0] = dist_right.raw_value();
+        temp[1] = dist_left.raw_value();
+
+        old_dist_val = dist_left.raw_value();
+
+        // hit left wall and take readings
+        Serial.println("centering left");
+        robot_move(RB_LEFT, 0, 0, max_speed / 1.5);
+        delay(delay_val);
+
+        robot_move(RB_STOP);
+
+        // Calibrate the two sensors
+        dist_right.calibrate(temp[0], dist_right.raw_value());
+#ifdef DEBUG_PRINT_DIST
+        Serial.print(dist_left.raw_value());
+        Serial.print(",");
+        Serial.println(temp[1]);
+        delay(2000);
+#endif
+        dist_left.calibrate(dist_left.raw_value(), temp[1]);
+    }
+}
+
+#endif
+
+/**
+ * @brief               Low level movement commands, allows for the motors to be rearranged
+ *                      and all movement to be updated
+ *
+ * @param direction     Direction to move the robot
+ * @param speed         Speeed to spin the motors at 0-4095
+ * @param acceleration  Currently unused, how fast to increase speed of motors
+ *
+ * @details             Each motor has a defined forward and backward direction which can be configured
+ *                      so that the wheels can be reliably turned in the correct direction
+ *
+ *                      Each mechanum wheel creates a vector, by summing these vectors, the overall
+ *                      movement of the robot can be determined.
+ *
+ *                      When all wheels are moving forward, the horizontal component is zero,
+ *                      When each side is moving opposite eachother (ie, each side has one forward rotating and one backwards)
+ *                      then the robot can strafe
+ */
+void robot_move(ROBOT_DIR direction, float heading_correction, int16_t placement_correction, uint16_t speed) {
+
+    if (abs(heading_correction) < 3) {
+        heading_correction = 0;
+    }
+
     double xc = 0;
     double yc = 0;
 
-    int16_t head_corr[4] = {0,0,0,0};
+    float head_corr[4] = {0,0,0,0};
 
     for (int i = 0; i < 4; ++i) {
         head_corr[i] = heading_correction;
-        if (i == MOTOR_FR || i == MOTOR_RR) {
+        if (i == MOTOR_FR-1 || i == MOTOR_RR-1) {
             head_corr[i] *= -1;
         }
     }
@@ -583,8 +897,8 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
 
         yc = -max_speed;
 
-        head_corr[MOTOR_FL] *= -1;
-        head_corr[MOTOR_RR] *= -1;
+        head_corr[MOTOR_FL-1] *= -1;
+        head_corr[MOTOR_RR-1] *= -1;
     } else if (direction == RB_RIGHT) {
         motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
         motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
@@ -593,19 +907,21 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
 
         yc = max_speed;
 
-        head_corr[MOTOR_FR] *= -1;
-        head_corr[MOTOR_RL] *= -1;
+        head_corr[MOTOR_FR-1] *= -1;
+        head_corr[MOTOR_RL-1] *= -1;
     }
 
 
     // By taking the unit vector of the input, then solving against
     // the wheel vectors defined in the preamble, we are able to arbitrarily
     // strafe
+
+    // We can apply a rotation vector to based on strafing factor, so we can move while strafing
     xyc = {xc, yc};
 
     double theta = -1 * placement_correction * PI/((double)180.0);
 
-    if (direction == RB_LEFT || direction == RB_RIGHT) {
+    if (direction == RB_LEFT || direction == RB_BACKWARD) {
         theta *= -1;
     }
 
@@ -621,291 +937,23 @@ void robot_move_(ROBOT_DIR direction, int16_t heading_correction, int16_t placem
     double speed_pos = (speed_solved(1)/speed_mag) * speed;
 
     
-    
-
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_FL])*MOTOR_FL_CONSTANT) );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_RL])*MOTOR_RL_CONSTANT) );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_RR])*MOTOR_RR_CONSTANT) );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_FR])*MOTOR_FR_CONSTANT) );
-}
-
-
-void robot_move_old(ROBOT_DIR direction, int16_t heading_correction, int16_t placement_correction, uint16_t speed) {
-    double speed_neg = speed;
-    double speed_pos = speed;
-
-    int16_t placement_corr[4] = {0,0,0,0};
-    int16_t head_corr[4] = {0,0,0,0};
+    head_corr[MOTOR_FL-1] = 0;
+    head_corr[MOTOR_RR-1] = 0;
 
     for (int i = 0; i < 4; ++i) {
-        placement_corr[i] = 0;
-        head_corr[i] = heading_correction;
-        if (i == MOTOR_FR || i == MOTOR_RR) {
-            head_corr[i] *= -1;
-        }
+        head_corr[i] = 0;
     }
 
-    if (direction == RB_FORWARD) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
-        
-        if (placement_correction < 0) {
-            placement_corr[MOTOR_RL] = -placement_correction;
-            placement_corr[MOTOR_FR] = -placement_correction;
-        } else {
-            placement_corr[MOTOR_FL] = -placement_correction;
-            placement_corr[MOTOR_RR] = -placement_correction;
-        }
-    } else if (direction == RB_BACKWARD) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
-        for (int i = 0; i < 4; ++i) {
-            head_corr[i] *= -1;
-            placement_corr[i] *= -1;
-        }
-        if (placement_correction > 0) {
-            placement_corr[MOTOR_RL] = -placement_correction;
-            placement_corr[MOTOR_FR] = -placement_correction;
-        } else {
-            placement_corr[MOTOR_FL] = -placement_correction;
-            placement_corr[MOTOR_RR] = -placement_correction;
-        }
-    } else if (direction == RB_STOP) {
-        motorshield.getMotor(MOTOR_FL)->run(RELEASE);
-        motorshield.getMotor(MOTOR_RR)->run(RELEASE);
-        motorshield.getMotor(MOTOR_RL)->run(RELEASE);
-        motorshield.getMotor(MOTOR_FR)->run(RELEASE);
-    }
-
-    if (direction == RB_LEFT) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
-
-        head_corr[MOTOR_FL] *= -1;
-        head_corr[MOTOR_RR] *= -1;
-
-
-    } else if (direction == RB_RIGHT) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
-
-        head_corr[MOTOR_FR] *= -1;
-        head_corr[MOTOR_RL] *= -1;
-
-
-    }
-    
-    // Set adjusted speeds and round to an integer 
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_FL]+placement_corr[MOTOR_FL])*MOTOR_FL_CONSTANT) );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_RL]+placement_corr[MOTOR_RL])*MOTOR_RL_CONSTANT) );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_RR]+placement_corr[MOTOR_RR])*MOTOR_RR_CONSTANT) );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_FR]+placement_corr[MOTOR_FR])*MOTOR_FR_CONSTANT) );
+    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_FL-1])*MOTOR_FL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_RL-1])*MOTOR_RL_CONSTANT) );
+    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_RR-1])*MOTOR_RR_CONSTANT) );
+    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round((abs(speed_pos)+head_corr[MOTOR_FR-1])*MOTOR_FR_CONSTANT) );
 }
-
-void robot_rotation_(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
-
-    if (direction == RB_TURN_CC) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
-    } else if (direction == RB_TURN_CW) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
-    } else if (direction == RB_STOP) {
-        motorshield.getMotor(MOTOR_FL)->run(RELEASE);
-        motorshield.getMotor(MOTOR_RL)->run(RELEASE);
-        motorshield.getMotor(MOTOR_RR)->run(RELEASE);
-        motorshield.getMotor(MOTOR_FR)->run(RELEASE);
-    }
-    
-
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( round(speed * MOTOR_FL_CONSTANT) );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( round(speed * MOTOR_RL_CONSTANT) );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( round(speed * MOTOR_RR_CONSTANT) );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( round(speed * MOTOR_FR_CONSTANT) );
-}
-
-/**
- * @brief            Calculate next PID output
- * 
- * @param set_point  Current target value
- * @return uint16_t  PID output
- */
-uint16_t pid_rot_calculate(uint16_t set_point) {
-    epid_pid_calc(&pid_rot, set_point, get_rotation()); /* Calc PID terms values */
-
-    /* Apply deadband filter to `delta[k]`. */
-    deadband_delta = pid_rot.p_term + pid_rot.i_term + pid_rot.d_term;
-    if ((deadband_delta != deadband_delta) || (fabsf(deadband_delta) >= DEADBAND)) {
-        /* Compute new control signal output */
-        epid_pid_sum(&pid_rot, PID_LIM_MIN, PID_LIM_MAX);
-        pid_rot_output = (int)lroundf(pid_rot.y_out); /* float to int */
-    }
-
-    return pid_rot_output;
-}
-#endif
-#endif
-
-
-/**
- * @brief      Calibrate center by ramming the walls
- * 
- * @param dir 
- * 
- * @details    Takes readings at the two known distances:
- *              When the sensor is against the wall at almost 4cm,
- *              and when the sensor is far from the wall
- */
-void calibrate_center(CENTER_TYPE dir) {
-    uint16_t temp[2];
-
-    // Will eventually center forward and backwards
-    // so strafing is more possible
-    if (dir == CENTER_L_R) {
-        // hit the right wall and take readings
-        int delay_val = 1600;
-        Serial.println("centering right");
-        uint16_t old_dist_val = dist_right.raw_value();
-        robot_move(RB_RIGHT, max_speed/1.5);
-        delay(delay_val);
-
-        robot_move(RB_STOP);
-
-        delay(motor_stop_delay);
-
-        temp[0] = dist_right.raw_value();
-        temp[1] = dist_left.raw_value();
-
-        old_dist_val = dist_left.raw_value();
-
-        // hit left wall and take readings    
-        Serial.println("centering left");
-        robot_move(RB_LEFT, max_speed/1.5);
-        delay(delay_val);
-
-        robot_move(RB_STOP);
-
-        // Calibrate the two sensors
-        dist_right.calibrate(temp[0], dist_right.raw_value());
-        #ifdef DEBUG_PRINT_DIST
-        Serial.print(dist_left.raw_value());
-        Serial.print(",");
-        Serial.println(temp[1]);
-        delay(2000);
-        #endif
-        dist_left.calibrate(dist_left.raw_value(), temp[1]);
-    }
-}
-
-#ifdef USE_PID_ROTATE
-/**
- * @brief PID debug text, taken from library example
- * 
- */
-void SerialSend()
-{
-    Serial.print("pid_rot_setpoint: ");
-    Serial.print(pid_rot_setpoint);
-    Serial.print(" ");
-    Serial.print("input: ");
-    Serial.print(pid_rot_input);
-    Serial.print(" ");
-    Serial.print("output: ");
-    Serial.print(pid_rot_output);
-    Serial.print(" ");
-
-    Serial.print("pid_rot_kp: ");
-    Serial.print(turning_pid.GetKp());
-    Serial.print(" ");
-    Serial.print("pid_rot_ki: ");
-    Serial.print(turning_pid.GetKi());
-    Serial.print(" ");
-    Serial.print("pid_rot_kd: ");
-    Serial.print(turning_pid.GetKd());
-    Serial.println();
-    
-}
-#endif
-
-/**
- * @brief               Low level movement commands, allows for the motors to be rearranged
- *                      and all movement to be updated
- * 
- * @param direction     Direction to move the robot
- * @param speed         Speeed to spin the motors at 0-4095
- * @param acceleration  Currently unused, how fast to increase speed of motors
- * 
- * @details             Each motor has a defined forward and backward direction which can be configured
- *                      so that the wheels can be reliably turned in the correct direction
- * 
- *                      Each mechanum wheel creates a vector, by summing these vectors, the overall
- *                      movement of the robot can be determined.
- * 
- *                      When all wheels are moving forward, the horizontal component is zero,
- *                      When each side is moving opposite eachother (ie, each side has one forward rotating and one backwards)
- *                      then the robot can strafe
- */
-void robot_move(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) {
-    double speed_neg = speed;
-    double speed_pos = speed;
-
-    if (direction == RB_FORWARD) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
-    } else if (direction == RB_BACKWARD) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
-    } else if (direction == RB_STOP) {
-        motorshield.getMotor(MOTOR_FL)->run(RELEASE);
-        motorshield.getMotor(MOTOR_RR)->run(RELEASE);
-        motorshield.getMotor(MOTOR_RL)->run(RELEASE);
-        motorshield.getMotor(MOTOR_FR)->run(RELEASE);
-    }
-
-    if (direction == RB_FORWARD) {
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
-    } else if (direction == RB_BACKWARD) {
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
-    }
-
-    if (direction == RB_LEFT) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_BACKWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_BACKWARD);
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_FORWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_FORWARD);
-    } else if (direction == RB_RIGHT) {
-        motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
-        motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
-        motorshield.getMotor(MOTOR_RL)->run(MOTOR_RL_BACKWARD);
-        motorshield.getMotor(MOTOR_FR)->run(MOTOR_FR_BACKWARD);
-    }
-    
-    // Set adjusted speeds and round to an integer 
-    motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_FL_CONSTANT)) );
-    motorshield.getMotor(MOTOR_RL)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_RL_CONSTANT)) );
-    motorshield.getMotor(MOTOR_RR)->setSpeedFine( (uint16_t)round(abs(speed_neg*MOTOR_RR_CONSTANT)) );
-    motorshield.getMotor(MOTOR_FR)->setSpeedFine( (uint16_t)round(abs(speed_pos*MOTOR_FR_CONSTANT)) );
-}
-
 
 /**
  * @brief               High level rotation, same as above but for rotation
  *                      Uses tank tread type rotation
- * 
+ *
  * @param direction     Turn CW or CCW
  * @param speed         Motor speed 0-4095
  * @param acceleration  Currently unused, how fast to change motor speed
@@ -935,6 +983,13 @@ void robot_rotation(ROBOT_DIR direction, uint16_t speed, uint16_t acceleration) 
     motorshield.getMotor(MOTOR_RR)->setSpeedFine( round(speed * MOTOR_RR_CONSTANT) );
     motorshield.getMotor(MOTOR_FR)->setSpeedFine( round(speed * MOTOR_FR_CONSTANT) );
 }
+
+
+
+
+
+
+
 
 #ifdef USE_GYRO
 /**
