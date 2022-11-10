@@ -328,15 +328,21 @@ void task_strafe(ROBOT_DIR dir, int squares, int offset = 0) {
 void task_rotate(ROBOT_DIR dir, double deg) {
 
 #ifdef USE_GYRO
+    float output = get_rotation();
+
     if (dir == RB_TURN_CW) {
         heading = add_degrees(heading, deg);
     } else if (dir == RB_TURN_CC) {
         heading = add_degrees(heading, -deg);
     }
 
-    while (abs(deg_difference(output, target)) > 3) {
-        if (deg_difference(output, target) < 0 && )
-        robot_rotation(dir, 4096/2);
+    while (abs(deg_difference(output, heading)) > 3) {
+        if (deg_difference(output, heading) < 0) {
+            robot_rotation(RB_TURN_CC, 4096 / 2);
+        } else {
+            robot_rotation(RB_TURN_CW, 4096 / 2);
+        }
+        
         delay(50);
         output = get_rotation();
     } 

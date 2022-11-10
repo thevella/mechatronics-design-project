@@ -118,7 +118,7 @@ void setup_sensors() {
 
     imu.dmpBegin(DMP_FEATURE_6X_LP_QUAT | // Enable 6-axis quat
                DMP_FEATURE_GYRO_CAL, // Use gyro calibration
-               10); // Set DMP FIFO rate to 10 Hz
+               20); // Set DMP FIFO rate to 10 Hz
     
     // If using the gyro, have to delay to allow gyro to start up, otherwise it gets garbage readings
     delay(10000);
