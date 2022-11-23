@@ -2,7 +2,7 @@
 // Various options, allows selective inclusion
 //#define USE_SCHEDULING
 
-//#define USE_GYRO
+#define USE_GYRO
 
 //#define USE_IR
 //#define DEBUG_PRINT_DIST
