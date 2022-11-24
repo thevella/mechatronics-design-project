@@ -966,7 +966,7 @@ void robot_move(ROBOT_DIR direction, float heading_correction, int16_t placement
     float head_corr[4] = {0,0,0,0};
 
     for (int i = 0; i < 4; ++i) {
-        head_corr[i] = heading_correction;
+        head_corr[i] = heading_correction*2;
         if (i == MOTOR_FR-1 || i == MOTOR_RR-1) {
             head_corr[i] *= -1;
         }
@@ -1059,7 +1059,9 @@ void robot_move(ROBOT_DIR direction, float heading_correction, int16_t placement
     head_corr[MOTOR_RR-1] = 0;
 
     for (int i = 0; i < 4; ++i) {
-        head_corr[i] = 0;
+        if (head_corr[i] > 0) {
+            head_corr[i] = 0;
+        }
     }
 
     motorshield.getMotor(MOTOR_FL)->setSpeedFine( (uint16_t)round((abs(speed_neg)+head_corr[MOTOR_FL-1])*MOTOR_FL_CONSTANT) );
