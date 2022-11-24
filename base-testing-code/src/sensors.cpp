@@ -106,6 +106,7 @@ void setup_sensors() {
 
     // If using gyro, ensure that we are connected to it, and it is ready
     #ifdef USE_GYRO
+    
     if (imu.begin() != INV_SUCCESS) {
         while (true) {
             Serial.println("Unable to communicate with MPU-9250");
@@ -118,8 +119,14 @@ void setup_sensors() {
 
     imu.dmpBegin(DMP_FEATURE_6X_LP_QUAT | // Enable 6-axis quat
                DMP_FEATURE_GYRO_CAL, // Use gyro calibration
-               20); // Set DMP FIFO rate to 10 Hz
+               10); // Set DMP FIFO rate to 10 Hz
     
+    
+
+    imu.setGyroFSR(250);
+    //imu.setSampleRate(250);
+    //imu.setCompassSampleRate(100);
+
     // If using the gyro, have to delay to allow gyro to start up, otherwise it gets garbage readings
     delay(10000);
 
@@ -128,10 +135,14 @@ void setup_sensors() {
         delay(50);
     }
 
-    #endif
+    
 
+    #else
     // Have to start wire since we are not using gyro
     Wire.begin();
+    #endif
+
+    
     
     // Turn off sensor with shutoff wired
     // Needed to change address of other sensor
@@ -145,13 +156,13 @@ void setup_sensors() {
     TOF_front.begin();
     TOF_front.InitSensor();
     TOF_front.VL53L4CD_SetI2CAddress(0x54);
-    
+
     delay(1000);
     
     // Set the range timings for those that worked best through testing
     TOF_front.VL53L4CD_SetRangeTiming(125, 50);
     TOF_front.VL53L4CD_StartRanging();
-    
+
     delay(1000);
 
     TOF_left.VL53L4CD_On();

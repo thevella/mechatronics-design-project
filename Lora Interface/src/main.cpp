@@ -7,7 +7,7 @@
 #include <SoftwareSerial.h>
 #include <BitBool.h>
 
-#define DESTINATION_ADDL 2
+#define DESTINATION_ADDL 0x02
 
 // ---------- Arduino pins --------------
 // LoRa_E220(byte txE220pin, byte rxE220pin, byte auxPin, byte m0Pin, byte m1Pin, UART_BPS_RATE bpsRate = UART_BPS_RATE_9600);
@@ -80,7 +80,7 @@ void setup() {
 
 	configuration.OPTION.subPacketSetting = SPS_064_10; // Packet size
 	configuration.OPTION.RSSIAmbientNoise = RSSI_AMBIENT_NOISE_DISABLED; // Need to send special joystick
-	configuration.OPTION.transmissionPower = POWER_30; // Device power
+	configuration.OPTION.transmissionPower = POWER_24; // Device power
 
 	configuration.TRANSMISSION_MODE.enableRSSI = RSSI_DISABLED; // Enable RSSI info
 	configuration.TRANSMISSION_MODE.fixedTransmission = FT_FIXED_TRANSMISSION; // Enable repeater mode
@@ -104,45 +104,51 @@ void setup() {
 }
 
 
-
-void loop() {
+void lora_recieve() {
 	// If something available
-    if (e220ttl.available()>1) {
-	    // read the String message
+	if (e220ttl.available() > 1)
+	{
+		// read the String message
 #ifdef ENABLE_RSSI
-	    ResponseContainer rc = e220ttl.receiveMessageRSSI();
-#else	
-	    ResponseStructContainer rc = e220ttl.receiveMessage(sizeof(encoders));
+		ResponseContainer rc = e220ttl.receiveMessageRSSI();
+#else
+		ResponseStructContainer rc = e220ttl.receiveMessage(sizeof(encoders));
 #endif
-        // Is something goes wrong print error
-        if (rc.status.code!=1){
-            Serial.println("error");
-            Serial.println(rc.status.getResponseDescription());
-        }else{
-            // Print the data received
-            //Serial.println(rc.status.getResponseDescription());
-            //Serial.println("we got it");
-            //Serial.println(*(int*) rc.data);
+		// Is something goes wrong print error
+		if (rc.status.code != 1)
+		{
+			Serial.println("error");
+			Serial.println(rc.status.getResponseDescription());
+		}
+		else
+		{
+			// Print the data received
+			// Serial.println(rc.status.getResponseDescription());
+			// Serial.println("we got it");
+			// Serial.println(*(int*) rc.data);
 
 			/*
-            uint64_t *data = (uint64_t*) rc.data;
-            
-            enc.FR = data[0] & 0xFFFFFFFFFFFFFFFF;
-            enc.FL = (data[1]) & 0xFFFFFFFFFFFFFFFF;
+			uint64_t *data = (uint64_t*) rc.data;
+
+			enc.FR = data[0] & 0xFFFFFFFFFFFFFFFF;
+			enc.FL = (data[1]) & 0xFFFFFFFFFFFFFFFF;
 			enc.RL = (data[2]) & 0xFFFFFFFFFFFFFFFF;
 			enc.RR = (data[3]) & 0xFFFFFFFFFFFFFFFF;
 			*/
-			enc = *(encoders*) rc.data;
-            sprintf(output, "FL: %08li, FR: %08li", enc.FL, enc.FR);
-            Serial.println(output);
+			enc = *(encoders *)rc.data;
+			sprintf(output, "FL: %08li, FR: %08li", enc.FL, enc.FR);
+			Serial.println(output);
 			sprintf(output, "RL: %08li, RR: %08li", enc.RL, enc.RR);
-            Serial.println(output);
+			Serial.println(output);
 #ifdef ENABLE_RSSI
-            Serial.print("RSSI: "); Serial.println(rc.rssi, DEC);
+			Serial.print("RSSI: ");
+			Serial.println(rc.rssi, DEC);
 #endif
-        }
-    }
+		}
+	}
+}
 
+void lora_send() {
 	/*
 	if (Serial.available()) {
 			String input = Serial.readString();
@@ -153,32 +159,43 @@ void loop() {
 			Serial.println(rs.getResponseDescription());
 	}*/
 
-	if (digitalRead(button_pin) == LOW && !button_down) {
+	if (digitalRead(button_pin) == LOW && !button_down)
+	{
 		button_down = true;
 		rotate = !rotate;
-	} else if (digitalRead(button_pin) == HIGH) {
+	}
+	else if (digitalRead(button_pin) == HIGH)
+	{
 		button_down = false;
 	}
 	// sprintf(output, "RAW -- X: %04i, Y: %04i, C: %i", analogRead(x_pin), analogRead(y_pin), rotate);
 	// Serial.println(output);
-	uint16_t x = (uint16_t)round((analogRead(x_pin)/(double)1023.0) * 4095);
-	uint16_t y = (uint16_t)round((analogRead(y_pin)/(double)1023.0) * 4095);
+	uint16_t x = (uint16_t)round((analogRead(x_pin) / (double)1023.0) * 4095);
+	uint16_t y = (uint16_t)round((analogRead(y_pin) / (double)1023.0) * 4095);
 
-	if (abs((4095/2.0) - x) < abs((4095/2.0) - y)) {
-		x = (4095/2);
-	} else {
-		y = (4095/2);
-	}
+	// if (abs((4095/2.0) - x) < abs((4095/2.0) - y)) {
+	// 	x = (4095/2);
+	// } else {
+	// 	y = (4095/2);
+	// }
 
 	joystick_com = {x, y, rotate};
 
-	if (abs(joystick_com.y - old_com.y) > 15 || abs(joystick_com.x - old_com.x) > 15 || joystick_com.button != old_com.button) {
-		//sprintf(output, "X: %04i, Y: %04i, C: %i\n", com.x, com.y, com.button);
-		//Serial.println(output);
+	if (abs(joystick_com.y - old_com.y) > 15 || abs(joystick_com.x - old_com.x) > 15 || joystick_com.button != old_com.button)
+	{
+		// sprintf(output, "X: %04i, Y: %04i, C: %i\n", joystick_com.x, joystick_com.y, joystick_com.button);
+		// Serial.println(output);
 		ResponseStatus rs = e220ttl.sendFixedMessage(0, DESTINATION_ADDL, 23, &joystick_com, sizeof(joystick));
 		old_com = joystick_com;
+		// Serial.println(rs.getResponseDescription());
 	}
-	//Serial.println((int)sizeof(joystick));
+	// Serial.println((int)sizeof(joystick));
+}
+
+void loop() {
+	// lora_recieve();
+
+	lora_send();
 
 	delay(10);
 }

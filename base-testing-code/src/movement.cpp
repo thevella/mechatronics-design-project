@@ -45,7 +45,7 @@ using namespace ace_routine;
 #endif
 
 //#define REVERSE_AUTO
-#define REVERSE
+//#define REVERSE
 
 #if defined(REVERSE) && defined(REVERSE_AUTO)
 #warning Overriding auto reverse
@@ -69,9 +69,47 @@ using namespace ace_routine;
 // Commands, Structured using defines so that individual sections
 // of the map can be done individually instead of having to do
 // the whole run to test
+// std::vector<std::vector<int>> commands {
+//     #if defined(DO_TOP)
+//     {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_BACKWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}
+//     #endif
+
+//     #if defined(DO_TOP) && defined(DO_BOTTOM)
+//     , {T_RAMP},
+//     #endif
+
+//     #if defined(DO_BOTTOM)
+//     {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, 
+//     {T_FORWARD, 1}, {T_TURN_CCW, 90}, /**/ {T_BACKWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1}, 
+//     {T_STRAFE_R, 1}, {T_REVERSE, 350}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_REVERSE, 350},
+//     {T_GRAB_SAND}
+//     #endif
+
+//     #if defined(REVERSE) && defined(DO_BOTTOM)
+//     , {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_STRAFE_R, 1}, {T_REVERSE, 450}, {T_FORWARD, 2}, {T_STRAFE_R, 1}, {T_REVERSE, 450}, {T_FORWARD, 1},
+//     {T_TURN_CW, 1}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 2}, 
+//     {T_TURN_CW, 90}, {T_FORWARD, 4}, {T_TURN_CCW, 90}, {T_FORWARD, 2}, {T_TURN_CCW, 90}
+//     #endif
+
+//     #if defined(DO_TOP) && defined(DO_BOTTOM) && defined(REVERSE)
+//     , {T_RAMP, true}
+//     #endif
+
+//     #if defined(REVERSE) && defined(DO_TOP)
+//     #ifdef DO_BOTTOM
+//     , {T_TURN_CCW, 90}
+//     #else
+//     , {T_TURN_CW, 90}
+//     #endif
+//     , {T_FORWARD, 4}, {T_TURN_CCW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 4}
+//     #endif
+
+//     };
+
 std::vector<std::vector<int>> commands {
     #if defined(DO_TOP)
-    {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_BACKWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 3}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}
+    {T_FORWARD, 4}, {T_TURN_CW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CW, 90}, {T_FORWARD, 1},
+    {T_TURN_CCW, 90}, {T_FORWARD, 1}, {T_TURN_CCW, 90}, {T_FORWARD, 2}, {T_TURN_CW, 90}
     #endif
 
     #if defined(DO_TOP) && defined(DO_BOTTOM)
@@ -199,6 +237,7 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
         do {
             // Only move if one of the sensors returned valid data
             move = move || read_TOF_left(&output2);
+            Serial.println(millis());
             if (move) {
                 // If our correction value is valid, then use it,
                 // otherwise we are on an open square, so don't
@@ -1004,6 +1043,16 @@ void robot_move(ROBOT_DIR direction, float heading_correction, int16_t placement
 
     double speed_neg = (speed_solved(0)/speed_mag) * speed;
     double speed_pos = (speed_solved(1)/speed_mag) * speed;
+
+    // Scale speeds to the max speed, otherwise can be going 
+    // slower than max
+    if (speed_neg < speed_pos) {
+        speed_neg *= speed / speed_pos;
+        speed_pos = speed;
+    } else {
+        speed_neg *= speed / speed_pos;
+        speed_pos = speed;
+    }
 
     
     head_corr[MOTOR_FL-1] = 0;
