@@ -24,8 +24,8 @@
 // Define how the wires are hooked up, easier than
 // changing the wires every time
 #define MOTOR_FR_FORWARD FORWARD
-#define MOTOR_FL_FORWARD FORWARD
-#define MOTOR_RL_FORWARD BACKWARD
+#define MOTOR_FL_FORWARD BACKWARD
+#define MOTOR_RL_FORWARD FORWARD
 #define MOTOR_RR_FORWARD BACKWARD
 
 // Define backwards for every motor based on how 

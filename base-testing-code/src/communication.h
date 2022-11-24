@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
+
 #ifdef USE_NFC
 #include "ST25DVSensor.h"
 #endif
@@ -38,3 +39,12 @@ void printParametersLora(struct Configuration configuration);
 void printModuleInformation(struct ModuleInformation moduleInformation);
 void lora_setup();
 #endif
+
+enum CURSOR_MOVEMENT {
+    VERTICAL,
+    HORIZONTAL,
+    TO_ROW,
+    TO_COLUMN,
+    ZERO_ZERO
+
+};

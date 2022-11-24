@@ -112,6 +112,24 @@ void nfc_setup() {
 #endif
 
 
+/*
+     * Serial.print("\033[2J");   // clear screen
+     * Serial.print("\033[0;0H"); // set cursor to 0,0
+     * Serial.print("\033[10B");  // move cursor down 10 lines
+     * Serial.print("\033[5A");  // move cursor up 5 lines
+     * Serial.write(13); // Beginning of line
+     */
+// #include <memory>
+// std::unique_ptr<int[]> tempArray (new int[length]);
+// void move_cursor(int *dir[2]) {
+
+// }
+
+// void move_cursor(CURSOR_MOVEMENT dir, int amount, bool clear_screen = false) {
+// 	std::unique_ptr<int[]> tempArray (new int[2] {dir, amount});
+// 	move_cursor(&(tempArray.get()));
+// }
+
 
 #ifdef USE_LORA
 
