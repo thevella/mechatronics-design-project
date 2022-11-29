@@ -191,42 +191,80 @@ void correct_heading() {
  * @param offset  if an offset is needed for manual correction
  */
 void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
-    int output = 0;
-    int output2 = 0;
+    int dir_reading = 0;
+    int wall_reading = 0;
     int target = 0;
+    bool (*read_dir_TOF)(int*, int*) = &read_TOF_front;
+    bool (*read_wall_TOF)(int*, int*) = &read_TOF_left;
+
+    if (dir == RB_LEFT || dir == RB_RIGHT) {
+        read_dir_TOF = &read_TOF_left;
+        read_wall_TOF = &read_TOF_front;
+    }
+
 
     // Read the sensor to get initial reading
-    read_TOF_front(&output);
+    read_dir_TOF(&dir_reading, nullptr);
 
     bool move = false;
     
-    // If we are pover 900 mm away, we do not read correctly,
+    // If we are over 900 mm away, we do not read correctly,
     // move closer to a calibrated distance
-    if (output > 900 && false) {
-        while (abs(output - 865) > 3) {
+    if (dir_reading > 900 && false) {
+        while (abs(dir_reading - 865) > 3) {
             // Only move if one of the sensors is returning valid data
-            move = move || read_TOF_left(&output2);
+            move = move || read_wall_TOF(&wall_reading, nullptr);
             if (move) {
-                robot_move(dir, 0, output2 - MM_TO_SQUARES_LR_OFF);
+                robot_move(dir, 0, wall_reading - MM_TO_SQUARES_LR_OFF);
             } else {
                 robot_move(RB_STOP);
             }
             move = false;
             delay(25);
-            move = read_TOF_front(&output);
+            move = read_dir_TOF(&dir_reading, nullptr);
         }
 
         --squares;
+
+        robot_move(RB_STOP);
     }
     
+    ROBOT_DIR for_dir = RB_FORWARD;
+    ROBOT_DIR back_dir = RB_BACKWARD;
+
+    if (dir == RB_RIGHT || dir == RB_LEFT) {
+        for_dir = RB_LEFT;
+        back_dir = RB_RIGHT;
+    }
+
     // If moving towards sensor, subtract distance, otherwise add it
-    if (dir == RB_FORWARD) {
-        target = output - (squares * MM_TO_SQUARES_F - (squares - 1) * MM_TO_SQUARES_F_CORR) - offset;
-        if (target < MM_TO_SQUARES_FB_OFF) {
-            target = MM_TO_SQUARES_FB_OFF;
+    if (dir == RB_FORWARD || dir == RB_LEFT) {
+        int corr = MM_TO_SQUARES_F_CORR;
+        int mm_to_sq = MM_TO_SQUARES_F;
+        int off = MM_TO_SQUARES_FB_OFF;
+
+        if (dir == RB_LEFT) {
+            corr = MM_TO_SQUARES_L_CORR;
+            mm_to_sq = MM_TO_SQUARES_L;
+            off = MM_TO_SQUARES_LR_OFF;
         }
-    } else if (dir == RB_BACKWARD) {
-        target = output + (squares * MM_TO_SQUARES_B + (squares - 1) * MM_TO_SQUARES_B_CORR) + offset;
+
+        target = dir_reading - (squares * mm_to_sq - (squares - 1) * corr) - offset;
+        if (target < mm_to_sq) {
+            target = off;
+        }
+    } else if (dir == RB_BACKWARD || dir == RB_RIGHT) {
+        int corr = MM_TO_SQUARES_B_CORR;
+        int mm_to_sq = MM_TO_SQUARES_B;
+        int off = MM_TO_SQUARES_FB_OFF;
+
+        if (dir == RB_RIGHT) {
+            corr = MM_TO_SQUARES_R_CORR;
+            mm_to_sq = MM_TO_SQUARES_R;
+            off = MM_TO_SQUARES_LR_OFF;
+        }
+
+        target = dir_reading + (squares * mm_to_sq + (squares - 1) * corr) + offset;
     }
 
     
@@ -236,25 +274,23 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
     if (squares != 0) {
         do {
             // Only move if one of the sensors returned valid data
-            move = move || read_TOF_left(&output2);
+            move = move || read_wall_TOF(&wall_reading, nullptr);
             Serial.println(millis());
             if (move) {
                 // If our correction value is valid, then use it,
                 // otherwise we are on an open square, so don't
                 // apply recentering
-                if (output2 < 200) {
-                    correction = output2 - MM_TO_SQUARES_LR_OFF;
+                if (wall_reading < 200) {
+                    correction = wall_reading - MM_TO_SQUARES_LR_OFF;
                 } else {
                     correction = 0;
                 }
 
                 // Move towards the target value
-                if (output - target < 0 && dir == RB_FORWARD) {
-                    robot_move(RB_BACKWARD, 0, correction);
-                } else if (output - target > 0 && dir == RB_BACKWARD) {
-                    robot_move(RB_FORWARD, 0, correction);
+                if (dir_reading - target < 0) {
+                    robot_move(back_dir, 0, correction);
                 } else {
-                    robot_move(dir, 0, correction);
+                    robot_move(for_dir, 0, correction);
                 }
                 
             } else {
@@ -262,98 +298,13 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0) {
             }
             move = false;
             delay(25);
-            move = read_TOF_front(&output);
-        } while (abs(output - target) > 3);
+            move = read_dir_TOF(&dir_reading, nullptr);
+        } while (abs(dir_reading - target) > 3);
     }
     
     // Stop robot
     robot_move(RB_STOP);
 
-    // Correct heading if gyro available
-    correct_heading();
-}
-
-/**
- * @brief Strafe right or left correcting position as it moves,
- *          almost identical to task_move
- * 
- * @param dir     direction to move
- * @param squares number of squares to move
- * @param offset  if an offset is needed for manual correction
- */
-void task_strafe(ROBOT_DIR dir, int squares, int offset = 0) {
-    int output = 0;
-    int target = 0;
-    int output2 = 0;
-
-    // Read the sensor to get initial reading
-    read_TOF_left(&output);
-
-    bool move = false;
-    
-    // If we are pover 900 mm away, we do not read correctly,
-    // move closer to a calibrated distance
-    if (output > 900) {
-        while (abs(output - 865) > 3) {
-            // Only move if one of the sensors is returning valid data
-            move = move || read_TOF_front(&output2);
-            if (move) {
-                robot_move(dir, 0, output2 - MM_TO_SQUARES_FB_OFF);
-            }
-            move = false;
-            delay(25);
-            move = read_TOF_left(&output);
-        }
-
-        --squares;
-    }
-    
-    // If moving towards sensor, subtract distance, otherwise add it
-    if (dir == RB_LEFT) {
-        target = output - (squares * MM_TO_SQUARES_L + (squares - 1) * MM_TO_SQUARES_L_CORR) - offset;
-        // If we are less than the minimum, move to the value used for centering
-        if (target < MM_TO_SQUARES_LR_OFF) {
-            target = MM_TO_SQUARES_LR_OFF;
-        }
-    } else if (dir == RB_RIGHT) {
-        target = output + (squares * MM_TO_SQUARES_R + (squares - 1) * MM_TO_SQUARES_R_CORR) + offset;
-    }
-    
-    move = false;
-    int correction = 0;
-    // Only move if we are to move more than one square
-    if (squares != 0) {
-        do {
-            // Only move if one of the sensors returned valid data
-            move = move || read_TOF_front(&output2);
-            if (move) {
-                // If our correction value is valid, then use it,
-                // otherwise we are on an open square, so don't
-                // apply recentering
-                if (output2 < 200) {
-                    correction = output2 - MM_TO_SQUARES_LR_OFF;
-                } else {
-                    correction = 0;
-                }
-
-                // Move towards the target value
-                if (output - target < 0 && dir == RB_LEFT) {
-                    robot_move(RB_RIGHT, 0, correction);
-                } else if (output - target > 0 && dir == RB_RIGHT) {
-                    robot_move(RB_LEFT, 0, correction);
-                } else {
-                    robot_move(dir, 0, correction);
-                }
-            }
-            move = false;
-            delay(25);
-            move = read_TOF_left(&output);
-        } while (abs(output - target) > 3);
-    }
-    
-    // Stop robot
-    robot_move(RB_STOP);
-    
     // Correct heading if gyro available
     correct_heading();
 }
@@ -503,10 +454,10 @@ void navigate_maze() {
                 task_move(RB_BACKWARD, command.at(1), offset);
                 break;
             case(T_STRAFE_L):
-                task_strafe(RB_LEFT, command.at(1), offset);
+                task_move(RB_LEFT, command.at(1), offset);
                 break;
             case(T_STRAFE_R):
-                task_strafe(RB_RIGHT, command.at(1), offset);
+                task_move(RB_RIGHT, command.at(1), offset);
                 break;
             case(T_TURN_CW):
                 task_rotate(RB_TURN_CW, command.at(1));
@@ -546,10 +497,10 @@ void navigate_maze() {
             task_move(RB_BACKWARD, command.at(1), offset);
             break;
         case(T_STRAFE_L):
-            task_strafe(RB_LEFT, command.at(1), offset);
+            task_move(RB_LEFT, command.at(1), offset);
             break;
         case(T_STRAFE_R):
-            task_strafe(RB_RIGHT, command.at(1), offset);
+            task_move(RB_RIGHT, command.at(1), offset);
             break;
         case(T_TURN_CCW):
             task_rotate(RB_TURN_CC, command.at(1));
@@ -581,10 +532,10 @@ void navigate_maze() {
                 task_move(RB_BACKWARD, command.at(1), offset);
                 break;
             case(T_STRAFE_L):
-                task_strafe(RB_LEFT, command.at(1), offset);
+                task_move(RB_LEFT, command.at(1), offset);
                 break;
             case(T_STRAFE_R):
-                task_strafe(RB_RIGHT, command.at(1), offset);
+                task_move(RB_RIGHT, command.at(1), offset);
                 break;
             case(T_TURN_CW):
                 task_rotate(RB_TURN_CC, command.at(1));
@@ -1041,18 +992,22 @@ void robot_move(ROBOT_DIR direction, float heading_correction, int16_t placement
     
     double speed_mag = sqrt(pow(speed_solved(0), 2) + pow(speed_solved(1), 2));
 
-    double speed_neg = (speed_solved(0)/speed_mag) * speed;
-    double speed_pos = (speed_solved(1)/speed_mag) * speed;
+    speed_solved /= speed_mag * speed;
+
+    speed_solved *= speed / max(speed_solved(1), speed_solved(2));
+
+    double speed_neg = speed_solved(0);
+    double speed_pos = speed_solved(1);
 
     // Scale speeds to the max speed, otherwise can be going 
     // slower than max
-    if (speed_neg < speed_pos) {
-        speed_neg *= speed / speed_pos;
-        speed_pos = speed;
-    } else {
-        speed_neg *= speed / speed_pos;
-        speed_pos = speed;
-    }
+    // if (speed_neg < speed_pos) {
+    //     speed_neg *= speed / speed_pos;
+    //     speed_pos = speed;
+    // } else {
+    //     speed_neg *= speed / speed_pos;
+    //     speed_pos = speed;
+    // }
 
     
     head_corr[MOTOR_FL-1] = 0;

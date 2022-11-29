@@ -12,35 +12,6 @@
 #define DIST_FRONT 2
 #define DIST_BACK  3
 
-// Encoders proved unreliable, we dont need them
-#ifdef USE_ENCODERS
-#if MOTOR_FR_FORWARD == FORWARD
-const uint8_t MOTOR_FR_ENC_PINS[] = {36, 38};
-#else
-const uint8_t MOTOR_FR_ENC_PINS[] = {38, 36};
-#endif
-
-#if MOTOR_FL_FORWARD == FORWARD
-const uint8_t MOTOR_FL_ENC_PINS[] = {44, 46};
-#else
-const uint8_t MOTOR_FL_ENC_PINS[] = {46, 44};
-#endif
-
-#if MOTOR_RL_FORWARD == FORWARD
-const uint8_t MOTOR_RL_ENC_PINS[] = {34, 32};
-#else
-const uint8_t MOTOR_RL_ENC_PINS[] = {32, 34};
-#endif
-
-#if MOTOR_RR_FORWARD == FORWARD
-const uint8_t MOTOR_RR_ENC_PINS[] = {42, 40};
-#else
-const uint8_t MOTOR_RR_ENC_PINS[] = {40, 42};
-#endif
-
-const uint8_t MOTOR_ENC_PINS[4][2] = {*MOTOR_FR_ENC_PINS, *MOTOR_FL_ENC_PINS, *MOTOR_RL_ENC_PINS, *MOTOR_RR_ENC_PINS};
-volatile struct encoders enc = {0, 0, 0, 0};
-#endif
 
 #ifdef USE_IR
 // Distance Sensors definition
@@ -74,7 +45,9 @@ const uint16_t joystick_deadzone = 100;
 const uint16_t max_analog = 4095;
 
 #ifdef USE_GYRO
-MPU9250_DMP imu;
+// Check I2C device address and correct line below (by default address is 0x29 or 0x28)
+//                                   id, address
+Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire);
 #endif
 
 bool TEST_FRONT_TOF = false;
@@ -89,53 +62,32 @@ int target_deg = 0;
  */
 void setup_sensors() {
 
-    // If using encoders, attach interrupts
-    #ifdef USE_ENCODERS
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; i < 2; ++i) {
-            pinMode(MOTOR_ENC_PINS[i][j], INPUT);
-        }
-    }
-
-    attachInterrupt(digitalPinToInterrupt(MOTOR_FR_ENC_PINS[0]), MOTOR_FR_ENC_0, RISING);
-    attachInterrupt(digitalPinToInterrupt(MOTOR_FL_ENC_PINS[0]), MOTOR_FL_ENC_0, RISING);
-    attachInterrupt(digitalPinToInterrupt(MOTOR_RL_ENC_PINS[0]), MOTOR_RL_ENC_0, RISING);
-    attachInterrupt(digitalPinToInterrupt(MOTOR_RR_ENC_PINS[0]), MOTOR_RR_ENC_0, RISING);
-
-    #endif
 
     // If using gyro, ensure that we are connected to it, and it is ready
     #ifdef USE_GYRO
     
-    if (imu.begin() != INV_SUCCESS) {
-        while (true) {
-            Serial.println("Unable to communicate with MPU-9250");
-            Serial.println("Check connections, and try again.");
-            Serial.println();
-            delay(5000);
-        }
+    if (!bno.begin()) {
+        Serial.print("No BNO055 detected");
+        while (1);
     }
     
+    do {
+        uint8_t cals[4] = {0};
+        do {
+            bno.getCalibration(&(cals[0]), &(cals[1]), &(cals[2]), &(cals[3]));
+            delay(50);
+        } while (cals[0] != 3 && cals[1] != 3 && cals[2] != 3 && cals[3] != 3);
+    } while(false);
 
-    imu.dmpBegin(DMP_FEATURE_6X_LP_QUAT | // Enable 6-axis quat
-               DMP_FEATURE_GYRO_CAL, // Use gyro calibration
-               10); // Set DMP FIFO rate to 10 Hz
-    
-    
+    bno.setExtCrystalUse(true);
 
-    imu.setGyroFSR(250);
-    //imu.setSampleRate(250);
-    //imu.setCompassSampleRate(100);
+    bno.setMode(OPERATION_MODE_NDOF);
+
+    double val = bno.getVector(Adafruit_BNO055::VECTOR_EULER)[0];
+    
 
     // If using the gyro, have to delay to allow gyro to start up, otherwise it gets garbage readings
-    delay(10000);
-
-    for (int i = 0; i < 10; ++i) {
-        get_rotation();
-        delay(50);
-    }
-
-    
+    delay(1000);
 
     #else
     // Have to start wire since we are not using gyro
@@ -328,9 +280,7 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
  * @return float    Rotation in deg, bound to range of -180 to 180
  */
 float get_rotation() {
-    while (!update_gyro()) delay(10);
-
-    return 360 - imu.yaw;
+    return bno.getVector(Adafruit_BNO055::VECTOR_EULER).z();
 }
 
 /**
@@ -391,129 +341,5 @@ float add_degrees(float degrees, float addition) {
     return new_degrees;
 }
 
-
-/**
- * @brief Debug print the data from the gyro, taken from the library example
- * 
- */
-void printIMUData(void)
-{  
-    // After calling dmpUpdateFifo() the ax, gx, mx, etc. values
-    // are all updated.
-    // Quaternion values are, by default, stored in Q30 long
-    // format. calcQuat turns them into a float between -1 and 1
-    float q0 = imu.calcQuat(imu.qw);
-    float q1 = imu.calcQuat(imu.qx);
-    float q2 = imu.calcQuat(imu.qy);
-    float q3 = imu.calcQuat(imu.qz);
-
-    Serial.println("Q: " + String(q0, 4) + ", " +
-                    String(q1, 4) + ", " + String(q2, 4) + 
-                    ", " + String(q3, 4));
-
-    Serial.println("R/P/Y: " + String(imu.roll) + ", "
-            + String(imu.pitch) + ", " + String(imu.yaw));
-
-    Serial.println("Time: " + String(imu.time) + " ms");
-
-    Serial.println();
-}
-
-/**
- * @brief           Ask for new data from sensor
- * 
- * @return true     Gryo had new data and has computed new position
- * @return false    Gyro has no new data, data is stale
- */
-bool update_gyro() {
-    // Check for new data in the FIFO
-    if ( imu.fifoAvailable() ) {
-        
-        // Use dmpUpdateFifo to update the ax, gx, mx, etc. values
-        if ( imu.dmpUpdateFifo() == INV_SUCCESS){
-            // computeEulerAngles can be used -- after updating the
-            // quaternion values -- to estimate roll, pitch, and yaw
-            imu.computeEulerAngles(true);
-            //printIMUData();
-            return true;
-        } 
-    }
-    return false;
-}
 #endif
 
-// Encoder interrupts, due to number of interrupts per
-// rotation they dont seem to be that reliable for positioning
-#ifdef USE_ENCODERS
-/**
- * @brief Encoder interrupt, there are two per motor
- * 
- */
-void MOTOR_FR_ENC_0() {
-    //check current state of encoder B's output and return direction
-    if ((digitalPinToPort(MOTOR_FR_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_FR_ENC_PINS[1])) == LOW) {
-        enc.FR += 1;
-    } else {
-        enc.FR -= 1;
-    }
-}
-
-void MOTOR_FR_ENC_1() {//check current state of encoder B's output and return direction
-    if ((digitalPinToPort(MOTOR_FR_ENC_PINS[0])->PIO_PDSR & digitalPinToBitMask(MOTOR_FR_ENC_PINS[0])) == LOW) {
-        enc.FR += 1;
-    } else {
-        enc.FR -= 1;
-    }
-}
-
-void MOTOR_FL_ENC_0() {
-    //check current state of encoder B's output and return direction
-    if ((digitalPinToPort(MOTOR_FL_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_FL_ENC_PINS[1])) == LOW) {
-        enc.FL += 1;
-    } else {
-        enc.FL -= 1;
-    }
-}
-
-void MOTOR_FL_ENC_1() {//check current state of encoder B's output and return direction
-    if ((digitalPinToPort(MOTOR_FL_ENC_PINS[0])->PIO_PDSR & digitalPinToBitMask(MOTOR_FL_ENC_PINS[0])) == LOW) {
-        enc.FL += 1;
-    } else {
-        enc.FL -= 1;
-    }
-}
-
-void MOTOR_RL_ENC_0() {
-    //check current state of encoder B's output and return direction
-    if ((digitalPinToPort(MOTOR_RL_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_RL_ENC_PINS[1])) == LOW) {
-        enc.RL += 1;
-    } else {
-        enc.RL -= 1;
-    }
-}
-
-void MOTOR_RL_ENC_1() {//check current state of encoder B's output and return direction
-    if ((digitalPinToPort(MOTOR_RL_ENC_PINS[0])->PIO_PDSR & digitalPinToBitMask(MOTOR_RL_ENC_PINS[0])) == LOW) {
-        enc.RL += 1;
-    } else {
-        enc.RL -= 1;
-    }
-}
-
-void MOTOR_RR_ENC_0() {
-    //check current state of encoder B's output and return direction
-    if ((digitalPinToPort(MOTOR_RR_ENC_PINS[1])->PIO_PDSR & digitalPinToBitMask(MOTOR_RR_ENC_PINS[1])) == LOW) {
-        enc.RR += 1;
-    } else {
-        enc.RR -= 1;
-    }
-}
-
-void MOTOR_RR_ENC_1() {//check current state of encoder B's output and return direction
-    if ((digitalPinToPort(MOTOR_RR_ENC_PINS[0])->PIO_PDSR & digitalPinToBitMask(MOTOR_RR_ENC_PINS[0])) == LOW) {
-        enc.RR += 1;
-    } else {
-        enc.RR -= 1;
-    }
-}
-#endif

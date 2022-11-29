@@ -4,6 +4,9 @@
 #include <SparkFunMPU9250-DMP.h>
 #include <vl53l4cd_class.h>
 
+#include <Adafruit_Sensor.h>
+#include <Adafruit_BNO055.h>
+
 #include "options.h"
 
 
@@ -18,22 +21,6 @@ struct joystick {
 	boolean button : 1; 
 };
 
-#ifdef USE_ENCODERS
-struct encoders {
-	int32_t FR;
-	int32_t FL;
-	int32_t RL;
-	int32_t RR;
-};
-
-
-extern const uint8_t MOTOR_ENC_PINS[][2];
-extern const uint8_t MOTOR_FR_ENC_PINS[];
-extern const uint8_t MOTOR_FL_ENC_PINS[];
-extern const uint8_t MOTOR_RL_ENC_PINS[];
-extern const uint8_t MOTOR_RR_ENC_PINS[];
-extern volatile struct encoders enc;
-#endif
 
 extern int target_deg;
 
@@ -163,16 +150,6 @@ extern dist_sensor dist_back;
 extern const uint16_t joystick_deadzone;
 extern const uint16_t max_analog;
 
-#ifdef USE_ENCODERS
-void MOTOR_FR_ENC_0();
-void MOTOR_FR_ENC_1();
-void MOTOR_FL_ENC_0();
-void MOTOR_FL_ENC_1();
-void MOTOR_RL_ENC_0();
-void MOTOR_RL_ENC_1();
-void MOTOR_RR_ENC_0();
-void MOTOR_RR_ENC_1();
-#endif
 
 void setup_sensors();
 
