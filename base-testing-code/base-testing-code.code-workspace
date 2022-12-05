@@ -1,0 +1,64 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"name": "Lora Interface",
+			"path": "../Lora Interface"
+		},
+		{
+			"path": "../../capstone/RobotTestCode"
+		},
+		{
+			"path": "../../capstone/ShelvingElevatorPrototype"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"cmath": "cpp",
+			"limits": "cpp",
+			"functional": "cpp",
+			"*.tcc": "cpp",
+			"array": "cpp",
+			"deque": "cpp",
+			"string": "cpp",
+			"unordered_map": "cpp",
+			"vector": "cpp",
+			"string_view": "cpp",
+			"initializer_list": "cpp",
+			"algorithm": "cpp",
+			"memory": "cpp",
+			"fstream": "cpp",
+			"iosfwd": "cpp",
+			"istream": "cpp",
+			"ostream": "cpp",
+			"sstream": "cpp",
+			"streambuf": "cpp",
+			"atomic": "cpp",
+			"cctype": "cpp",
+			"clocale": "cpp",
+			"cstdarg": "cpp",
+			"cstddef": "cpp",
+			"cstdint": "cpp",
+			"cstdio": "cpp",
+			"cstdlib": "cpp",
+			"cstring": "cpp",
+			"cwchar": "cpp",
+			"cwctype": "cpp",
+			"exception": "cpp",
+			"map": "cpp",
+			"memory_resource": "cpp",
+			"optional": "cpp",
+			"system_error": "cpp",
+			"tuple": "cpp",
+			"type_traits": "cpp",
+			"utility": "cpp",
+			"iostream": "cpp",
+			"new": "cpp",
+			"stdexcept": "cpp",
+			"cinttypes": "cpp",
+			"typeinfo": "cpp"
+		}
+	}
+}

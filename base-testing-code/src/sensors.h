@@ -1,7 +1,6 @@
 #pragma once
 #include <Arduino.h>
 
-#include <SparkFunMPU9250-DMP.h>
 #include <vl53l4cd_class.h>
 
 #include <Adafruit_Sensor.h>
@@ -65,58 +64,6 @@ public:
     };
 
     /**
-     * @brief       Linearly interpolate distance from calibration data
-     * 
-     * @return int  Distance from sensor to object (mm)
-     */
-	int read_dist() {
-        uint16_t temp = this->raw_value();
-        
-        int temp2 = round(this->cal_distances_mm[0]+(((temp-this->cal_values[0])/((double)(this->cal_values[1] - this->cal_values[0])))*(this->cal_distances_mm[1] - this->cal_distances_mm[0])));
-
-
-        #ifdef DEBUG_PRINT_DIST
-        char out1[50] = "\0";
-        
-        sprintf(out1, "RAW %i: %i", this->sens_num, temp);
-        
-        Serial.println(out1);
-        
-        sprintf(out1, "RAW_DIST BEFORE %i: %i", this->sens_num, temp2);
-        
-        Serial.println(out1);
-        #endif
-
-        return temp2;
-	};
-
-    /**
-     * @brief       Use offsets to ignore the sensors distance into the frame, so that each sensor
-     *              reads as if it starts at the edge of the frame
-     * 
-     * @return int  Distance from side of robot to object (mm)
-     */
-    int read_dist_wheels() {
-        int temp1 = this->read_dist();
-
-        #ifdef DEBUG_PRINT_DIST
-        char out1[50] = "\0";
-        sprintf(out1, "RAW_DIST %i: %i", this->sens_num, temp1);
-        Serial.println(out1);
-        #endif
-
-        int temp = temp1 - this->cal_distances_mm[0];
-        
-        #ifdef DEBUG_PRINT_DIST
-        sprintf(out1, "DIST %i: %i", this->sens_num, temp);
-        Serial.println(out1);
-        //delay(2000);
-        #endif
-
-        return temp;
-    };
-
-    /**
      * @brief           Turn the sensor on or off, can be used
      *                  to conserve power
      * 
@@ -130,20 +77,13 @@ public:
 		}
 	};
 
-	void calibrate(uint16_t val1, uint16_t val2);
-
 private:
-	uint32_t cal_distances_mm[2];
-	uint16_t cal_values[2];
 	uint8_t val_pin;
 	uint8_t gpio_pin;
     uint8_t sens_num;
 };
 
-extern dist_sensor dist_left;
-extern dist_sensor dist_right;
-extern dist_sensor dist_front;
-extern dist_sensor dist_back;
+extern dist_sensor dist_block;
 #endif
 
 
@@ -154,8 +94,9 @@ extern const uint16_t max_analog;
 void setup_sensors();
 
 #ifdef USE_GYRO
-float add_degrees(float, float);
+double add_degrees(double, double);
 bool update_gyro();
-float get_rotation();
-float deg_difference(float, float);
+double get_rotation();
+double deg_difference(double, double);
+double get_inclination();
 #endif

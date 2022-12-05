@@ -16,7 +16,7 @@
 // for some reason the encoders are not reliable.
 // Possibly due to number of interrupts from 4 motors
 // allowing some to be missed
-#define MOTOR_FR_CONSTANT (double)1.0
+#define MOTOR_FR_CONSTANT ((double)1.0)
 #define MOTOR_FL_CONSTANT ((double)1.00)
 #define MOTOR_RL_CONSTANT ((double)1.04)
 #define MOTOR_RR_CONSTANT ((double)1.06)
@@ -54,20 +54,29 @@
 #define MOTOR_RR_BACKWARD FORWARD
 #endif
 
-#define MM_TO_SQUARES_F 195
-#define MM_TO_SQUARES_F_CORR 2
-#define MM_TO_SQUARES_FB_OFF 65
+#define MM_TO_SQUARES_F 200
+// #define MM_TO_SQUARES_F_CORR 2
+#define MM_TO_SQUARES_F_CORR 0
 
-#define MM_TO_SQUARES_B 195
-#define MM_TO_SQUARES_B_CORR 10
+#define MM_TO_SQUARES_FB_OFF 60
+
+#define MM_TO_SQUARES_B 265
+// #define MM_TO_SQUARES_B_CORR 10
+#define MM_TO_SQUARES_B_CORR 0
 
 
-#define MM_TO_SQUARES_L 195
-#define MM_TO_SQUARES_L_CORR 6
+
+
+#define MM_TO_SQUARES_L 200
+// #define MM_TO_SQUARES_L_CORR 6
+#define MM_TO_SQUARES_L_CORR 0
+
 #define MM_TO_SQUARES_LR_OFF 43
+// #define MM_TO_SQUARES_LR_OFF 53
 
-#define MM_TO_SQUARES_R 195
-#define MM_TO_SQUARES_R_CORR 10
+#define MM_TO_SQUARES_R 250
+// #define MM_TO_SQUARES_R_CORR 10
+#define MM_TO_SQUARES_R_CORR 0
 
 extern int motor_stop_delay;
 
@@ -80,8 +89,7 @@ enum TASK_COMMANDS {
     T_TURN_CCW,
     T_GRAB_SAND,
     T_RAMP,
-    T_REVERSE,
-    T_RAMP_REVERSE
+    T_OBSTACLE
 };
 
 /**
