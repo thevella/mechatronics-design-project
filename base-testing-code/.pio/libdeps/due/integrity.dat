@@ -1,12 +1,7 @@
-stm32duino/STM32duino ST25DV@^1.1.0
-stm32duino/STM32duino VL53L4CD@^1.0.2
-sparkfun/SparkFun MPU-9250 Digital Motion Processing (DMP) Arduino Library@^1.0.0
-adafruit/Adafruit Motor Shield V2 Library@^1.1.0
-hideakitai/ArxContainer@^0.4.0
-asukiaaa/MPU9250_asukiaaa@^1.5.12
-bxparks/AceRoutine@^1.5.1
-abderraouf-adjal/Embedded Type-C PID@^1.1.3
 adafruit/Adafruit BNO055@^1.6.1
-br3ttb/PID@^1.2.1
-xreef/EByte LoRa E220 library@^1.0.6
+stm32duino/STM32duino VL53L4CD@^1.0.2
 tomstewart89/BasicLinearAlgebra@^3.6
+hideakitai/ArxContainer@^0.4.0
+xreef/EByte LoRa E220 library@^1.0.6
+adafruit/Adafruit Motor Shield V2 Library@^1.1.0
+stm32duino/STM32duino ST25DV@^1.1.0

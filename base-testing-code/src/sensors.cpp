@@ -1,39 +1,18 @@
 #include "sensors.h"
 
-#ifdef USE_SCHEDULING
-#include <AceRoutine.h>
-#endif
-
 #define reverse_sensor
 
 // The pins used by the sensors in each location
-#define DIST_LEFT  0
-#define DIST_RIGHT 1
-#define DIST_FRONT 2
-#define DIST_BACK  3
+#define DIST_BLOCK  0
 
 
 #ifdef USE_IR
 // Distance Sensors definition
 const uint8_t distance_sensors[][2] = {{A0, 13}, {A1, 13}, {A2, 13}, {A3, 13}};
-const uint8_t num_dist_sensors = 3;
-// Holder for calibration values, if any defined
-uint16_t distance_sensor_cal_values[][4] = {{0,0,0,0}, {0,0,0,0}, {0,0,0,0}, {0,0,0,0}};
-
-// Offsets for calculating distance to wall from edge of robot
-uint16_t robot_width_mm = 155;
-uint16_t wall_to_wall_width_mm = 175+10*2-3;
-
-// distances in mm for calibration
-uint64_t distance_mm_vals[][2] = {{(43)*1, (wall_to_wall_width_mm-robot_width_mm+43)*1}, 
-                                    {(45)*1, (wall_to_wall_width_mm-robot_width_mm+45)*1}, 
-                                    {(54)*1, (120+54)*1}};
+const uint8_t num_dist_sensors = 1;
 
 // Initialize sensors
-dist_sensor dist_left(DIST_LEFT);
-dist_sensor dist_right(DIST_RIGHT);
-dist_sensor dist_front(DIST_FRONT);
-// dist_sensor dist_back(DIST_BACK);
+dist_sensor dist_block(DIST_BLOCK);
 #endif
 
 VL53L4CD TOF_left(&Wire, 52);
@@ -61,7 +40,11 @@ int target_deg = 0;
  * 
  */
 void setup_sensors() {
+    char strBuf[100];
 
+    dist_block.change_state(true);
+
+    
 
     // If using gyro, ensure that we are connected to it, and it is ready
     #ifdef USE_GYRO
@@ -70,24 +53,97 @@ void setup_sensors() {
         Serial.print("No BNO055 detected");
         while (1);
     }
-    
-    do {
-        uint8_t cals[4] = {0};
-        do {
-            bno.getCalibration(&(cals[0]), &(cals[1]), &(cals[2]), &(cals[3]));
-            delay(50);
-        } while (cals[0] != 3 && cals[1] != 3 && cals[2] != 3 && cals[3] != 3);
-    } while(false);
 
     bno.setExtCrystalUse(true);
 
     bno.setMode(OPERATION_MODE_NDOF);
 
-    double val = bno.getVector(Adafruit_BNO055::VECTOR_EULER)[0];
     
+    
+    // pinMode(46, OUTPUT);
+    // digitalWrite(46, LOW);
 
+    
+    // Serial.println();
+    // do {
+    //     int accel = 0;
+    //     uint8_t cals[4] = {0};
+    //     bno.getCalibration(&(cals[0]), &(cals[1]), &(cals[2]), &(cals[3]));
+    //     accel = cals[2];
+    //     do {
+    //         bno.getCalibration(&(cals[0]), &(cals[1]), &(cals[2]), &(cals[3]));
+    //         sprintf(strBuf, "System: %d, Gyro: %d, Accel: %d, Mag: %d", cals[0], cals[1], cals[2], cals[3]);
+    //         Serial.print(strBuf);
+    //         Serial.write(13);
+    //         if (cals[2] != accel) {
+    //             accel = cals[2];
+    //             digitalWrite(46, HIGH);
+    //             delay(500);
+    //             digitalWrite(46, LOW);
+    //         }
+    //         delay(100);
+    //     } while (cals[0] != 3 || cals[1] != 3 || cals[2] != 3 || cals[3] != 3);
+    // } while(false);
+
+    // adafruit_bno055_offsets_t offsets_type;
+    // bno.getSensorOffsets(offsets_type);
+
+    // pinMode(47, OUTPUT);
+    // digitalWrite(47, HIGH);
+
+    // Serial.println();
+    // Serial.println(offsets_type.accel_offset_x);
+    // Serial.println(offsets_type.accel_offset_y);
+    // Serial.println(offsets_type.accel_offset_z);
+    // Serial.println(offsets_type.accel_radius);
+    // Serial.println(offsets_type.gyro_offset_x);
+    // Serial.println(offsets_type.gyro_offset_y);
+    // Serial.println(offsets_type.gyro_offset_z);
+    // Serial.println(offsets_type.mag_offset_x);
+    // Serial.println(offsets_type.mag_offset_y);
+    // Serial.println(offsets_type.mag_offset_z);
+    // Serial.println(offsets_type.mag_radius);
+    adafruit_bno055_offsets_t offsets_type;
+
+    offsets_type.accel_offset_x=-39;
+    offsets_type.accel_offset_y=19;
+    offsets_type.accel_offset_z=-23;
+    offsets_type.accel_radius=1000;
+    offsets_type.gyro_offset_x=-2;
+    offsets_type.gyro_offset_y=0;
+    offsets_type.gyro_offset_z=0;
+    offsets_type.mag_offset_x=180;
+    offsets_type.mag_offset_y=-291;
+    offsets_type.mag_offset_z=-625;
+    offsets_type.mag_radius=525;
+
+    bno.setSensorOffsets(offsets_type);
+
+    // Serial.println();
+    // while (true) {
+    //     imu::Vector<3> vals = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+    //     sprintf(strBuf, "x: %0.2f, y: %0.2f, z: %0.2f", vals.x(), vals.y(), vals.z());
+    //     Serial.print(strBuf);
+    //     Serial.write(13);
+    //     delay(10);
+    // }
+    
+    
     // If using the gyro, have to delay to allow gyro to start up, otherwise it gets garbage readings
     delay(1000);
+
+    for (int i = 0; i < 50; ++i) {
+        Serial.println(get_rotation());
+        delay(25);
+    }
+
+    // Serial.println();
+    // while (true) {
+    //     sprintf(strBuf, "%04.02f", bno.getVector(Adafruit_BNO055::VECTOR_EULER).y());
+    //     Serial.print(strBuf);
+    //     Serial.write(13);
+    //     delay(10);
+    // }
 
     #else
     // Have to start wire since we are not using gyro
@@ -123,6 +179,11 @@ void setup_sensors() {
     TOF_left.VL53L4CD_StartRanging();
 
     delay(2000);
+
+    // #ifdef USE_GYRO
+    // digitalWrite(47, LOW);
+    // #endif
+   
 
 }
 
@@ -254,23 +315,9 @@ dist_sensor::dist_sensor(uint8_t sensor) {
     pinMode(this->gpio_pin, OUTPUT);
     digitalWrite(this->gpio_pin, HIGH);
 
-    for (int i = 0; i < 2; ++i) {
-        this->cal_distances_mm[i] = distance_mm_vals[sensor][i];
-        this->cal_values[i] = 0;
-    }
     this->sens_num = sensor;
 }
 
-/**
- * @brief       Receive calibration data for use in distance values
- * 
- * @param val1  x1 when linearly interpolating
- * @param val2  y1 when linearly interpolating
- */
-void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
-    this->cal_values[0] = val1;
-    this->cal_values[1] = val2;
-}
 #endif
 
 #ifdef USE_GYRO
@@ -279,8 +326,17 @@ void dist_sensor::calibrate(uint16_t val1, uint16_t val2){
  * 
  * @return float    Rotation in deg, bound to range of -180 to 180
  */
-float get_rotation() {
-    return bno.getVector(Adafruit_BNO055::VECTOR_EULER).z();
+double get_rotation() {
+    return bno.getVector(Adafruit_BNO055::VECTOR_EULER).x();
+}
+
+/**
+ * @brief           Grab current rotation from sensor, must first request an update
+ * 
+ * @return float    Rotation in deg, bound to range of -180 to 180
+ */
+double get_inclination() {
+    return bno.getVector(Adafruit_BNO055::VECTOR_EULER).y();
 }
 
 /**
@@ -288,10 +344,10 @@ float get_rotation() {
  * 
  * @param current current reading
  * @param target  target value
- * @return float  bound difference
+ * @return double bound difference
  */
-float deg_difference(float current, float target) {
-    float diff = target - current;
+double deg_difference(double current, double target) {
+    double diff = target - current;
 
     // If more than 360, remove until within range
     while(diff > 360) {
@@ -309,26 +365,26 @@ float deg_difference(float current, float target) {
         diff = diff + 360;
     }
 
-    Serial.print("Current: ");
-    Serial.print(current);
-    Serial.print(" Target: ");
-    Serial.print(target);
-    Serial.print(" Diff: ");
-    Serial.println(diff);
+    // Serial.print("Current: ");
+    // Serial.print(current);
+    // Serial.print(" Target: ");
+    // Serial.print(target);
+    // Serial.print(" Diff: ");
+    // Serial.println(diff);
 
     return diff;
 }
 
 /**
  * @brief           Add a certain amount of degrees to the passed value,
- *                  binding to a range of -180 to 180
+ *                  binding to a range of 0 to 360
  * 
  * @param degrees   Initial value of degrees
  * @param addition  How many degrees to add
- * @return float    The bound value of the addition
+ * @return double   The bound value of the addition
  */
-float add_degrees(float degrees, float addition) {
-    float new_degrees = degrees + addition;
+double add_degrees(double degrees, double addition) {
+    double new_degrees = degrees + addition;
     
     while(new_degrees > 360) {
         new_degrees = new_degrees - 360;

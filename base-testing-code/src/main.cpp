@@ -7,10 +7,6 @@
 
 bool do_rotate = false;
 
-#ifdef USE_SCHEDULING
-using namespace ace_routine;
-#endif
-
 void setup() {
     // Small delay so we can clear the wires before it starts
     delay(1000);

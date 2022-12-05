@@ -1,9 +1,5 @@
 #include "communication.h"
 
-#ifdef USE_SCHEDULING
-#include "scheduling.h"
-#endif
-
 
 #include "movement.h"
 
