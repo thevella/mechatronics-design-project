@@ -24,7 +24,6 @@ const uint16_t joystick_deadzone = 100;
 const uint16_t max_analog = 4095;
 
 #ifdef USE_GYRO
-// Check I2C device address and correct line below (by default address is 0x29 or 0x28)
 //                                   id, address
 Adafruit_BNO055 bno = Adafruit_BNO055(55, 0x28, &Wire);
 #endif
@@ -40,11 +39,8 @@ int target_deg = 0;
  * 
  */
 void setup_sensors() {
-    char strBuf[100];
 
     dist_block.change_state(true);
-
-    
 
     // If using gyro, ensure that we are connected to it, and it is ready
     #ifdef USE_GYRO
@@ -58,51 +54,7 @@ void setup_sensors() {
 
     bno.setMode(OPERATION_MODE_NDOF);
 
-    
-    
-    // pinMode(46, OUTPUT);
-    // digitalWrite(46, LOW);
 
-    
-    // Serial.println();
-    // do {
-    //     int accel = 0;
-    //     uint8_t cals[4] = {0};
-    //     bno.getCalibration(&(cals[0]), &(cals[1]), &(cals[2]), &(cals[3]));
-    //     accel = cals[2];
-    //     do {
-    //         bno.getCalibration(&(cals[0]), &(cals[1]), &(cals[2]), &(cals[3]));
-    //         sprintf(strBuf, "System: %d, Gyro: %d, Accel: %d, Mag: %d", cals[0], cals[1], cals[2], cals[3]);
-    //         Serial.print(strBuf);
-    //         Serial.write(13);
-    //         if (cals[2] != accel) {
-    //             accel = cals[2];
-    //             digitalWrite(46, HIGH);
-    //             delay(500);
-    //             digitalWrite(46, LOW);
-    //         }
-    //         delay(100);
-    //     } while (cals[0] != 3 || cals[1] != 3 || cals[2] != 3 || cals[3] != 3);
-    // } while(false);
-
-    // adafruit_bno055_offsets_t offsets_type;
-    // bno.getSensorOffsets(offsets_type);
-
-    // pinMode(47, OUTPUT);
-    // digitalWrite(47, HIGH);
-
-    // Serial.println();
-    // Serial.println(offsets_type.accel_offset_x);
-    // Serial.println(offsets_type.accel_offset_y);
-    // Serial.println(offsets_type.accel_offset_z);
-    // Serial.println(offsets_type.accel_radius);
-    // Serial.println(offsets_type.gyro_offset_x);
-    // Serial.println(offsets_type.gyro_offset_y);
-    // Serial.println(offsets_type.gyro_offset_z);
-    // Serial.println(offsets_type.mag_offset_x);
-    // Serial.println(offsets_type.mag_offset_y);
-    // Serial.println(offsets_type.mag_offset_z);
-    // Serial.println(offsets_type.mag_radius);
     adafruit_bno055_offsets_t offsets_type;
 
     offsets_type.accel_offset_x=-39;
@@ -119,14 +71,6 @@ void setup_sensors() {
 
     bno.setSensorOffsets(offsets_type);
 
-    // Serial.println();
-    // while (true) {
-    //     imu::Vector<3> vals = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
-    //     sprintf(strBuf, "x: %0.2f, y: %0.2f, z: %0.2f", vals.x(), vals.y(), vals.z());
-    //     Serial.print(strBuf);
-    //     Serial.write(13);
-    //     delay(10);
-    // }
     
     
     // If using the gyro, have to delay to allow gyro to start up, otherwise it gets garbage readings
@@ -137,13 +81,6 @@ void setup_sensors() {
         delay(25);
     }
 
-    // Serial.println();
-    // while (true) {
-    //     sprintf(strBuf, "%04.02f", bno.getVector(Adafruit_BNO055::VECTOR_EULER).y());
-    //     Serial.print(strBuf);
-    //     Serial.write(13);
-    //     delay(10);
-    // }
 
     #else
     // Have to start wire since we are not using gyro
@@ -179,10 +116,6 @@ void setup_sensors() {
     TOF_left.VL53L4CD_StartRanging();
 
     delay(2000);
-
-    // #ifdef USE_GYRO
-    // digitalWrite(47, LOW);
-    // #endif
    
 
 }
@@ -208,8 +141,6 @@ void test_TOF() {
             Serial.print(" ");
             printed = true;
         }
-
-        
     }
 
     if (TEST_LEFT_TOF) {
@@ -324,16 +255,16 @@ dist_sensor::dist_sensor(uint8_t sensor) {
 /**
  * @brief           Grab current rotation from sensor, must first request an update
  * 
- * @return float    Rotation in deg, bound to range of -180 to 180
+ * @return double   Rotation in deg, bound to range of 0 to 360
  */
 double get_rotation() {
     return bno.getVector(Adafruit_BNO055::VECTOR_EULER).x();
 }
 
 /**
- * @brief           Grab current rotation from sensor, must first request an update
+ * @brief           Grab current inclination from sensor, must first request an update
  * 
- * @return float    Rotation in deg, bound to range of -180 to 180
+ * @return double   Inclination in deg, bound to range of 0 to 360
  */
 double get_inclination() {
     return bno.getVector(Adafruit_BNO055::VECTOR_EULER).y();
@@ -354,6 +285,7 @@ double deg_difference(double current, double target) {
         diff = diff - 360;
     }
 
+    // If less than, add until within range
     while (diff < -360) {
         diff = diff + 360;
     }
@@ -364,13 +296,6 @@ double deg_difference(double current, double target) {
     } else if (diff < -180) {
         diff = diff + 360;
     }
-
-    // Serial.print("Current: ");
-    // Serial.print(current);
-    // Serial.print(" Target: ");
-    // Serial.print(target);
-    // Serial.print(" Diff: ");
-    // Serial.println(diff);
 
     return diff;
 }

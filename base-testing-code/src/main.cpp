@@ -42,23 +42,6 @@ void setup() {
      * Serial.print("\033[5A");  // move cursor up 5 lines
      * Serial.write(13); // Beginning of line
      */
-    // robot_move(RB_FORWARD);
-    // while(true) {
-    //     if (round(millis()/1000.0) % 2 == 0 ){
-    //         robot_move(RB_FORWARD);
-    //     } else {
-    //         robot_move(RB_BACKWARD);
-    //     }
-    //     Serial.print(millis());
-    //     Serial.write(13);
-        
-    //     delay(10);
-    //     // Serial.print("\033[2J");
-    //     // Serial.print("\033[0;0H");
-    // }
-
-
-
     
 }
 

@@ -125,20 +125,34 @@ void correct_heading() {
 
 
 /**
- * @brief Strafe right or left correcting position as it moves
+ * @brief Move along any ordanal direction, correcting as it moves
  * 
- * @param dir     direction to move
- * @param squares number of squares to move
- * @param offset  if an offset is needed for manual correction
+ * @param dir          Direction to move
+ * @param squares      Number of squares to move
+ * @param offset       If an offset is needed for manual correction
+ * @param centering    Whether to correct position left and right
+ * @param fix_rotation Whether to correct heading
+ * @param until_flat   Whether to move until the ground is level again
+ * @param obstacle     Whether to move until an obstacle is detected in the gripper
+ * @param low_limit    The lower bound of rotation correction
+ * @param high_limit   The higher bound of rotation correction
  */
 void task_move(ROBOT_DIR dir, int squares, int offset = 0, bool centering = true, bool fix_rotation = true, bool until_flat = false, bool obstacle = false, int low_limit = -45, int high_limit = 45) {
+    // Reading in the direction of movement, Forward for forward/backward movement, and Left for left/right movement
     int dir_reading = 0;
+    // Reading towards the wall based on direction of movement, alternate to dir_reading
     int wall_reading = 0;
+    // What value to compare wall reading to, optimal position off wall
     int wall_compare = MM_TO_SQUARES_LR_OFF;
+    // The value we are moving towards in the direction of travel
     int target = 0;
+
+    // The two functions to get the correct readings, reduces number of if statements
+    // needed in main loop
     bool (*read_dir_TOF)(int*, int*) = &read_TOF_front;
     bool (*read_wall_TOF)(int*, int*) = &read_TOF_left;
 
+    // Set to values needed for strafing
     if (dir == RB_LEFT || dir == RB_RIGHT) {
         read_dir_TOF = &read_TOF_left;
         read_wall_TOF = &read_TOF_front;
@@ -149,8 +163,10 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0, bool centering = true
     // Read the sensor to get initial reading
     read_dir_TOF(&dir_reading, nullptr);
 
-    bool move = false;
     
+    // Setup directions for moving towards the target
+    // for_dir is used when value being read is lower than target
+    // back_dir is used when value being read is higher than target
     ROBOT_DIR for_dir = RB_FORWARD;
     ROBOT_DIR back_dir = RB_BACKWARD;
 
@@ -172,6 +188,9 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0, bool centering = true
         }
 
         target = dir_reading - (squares * mm_to_sq - (squares - 1) * corr) - offset;
+
+        // If target is too low, or special value is given, set target to
+        // ideal distance from wall
         if (target < mm_to_sq || squares == -1) {
             target = off;
         }
@@ -192,14 +211,19 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0, bool centering = true
     
 
     
-    
-    move = false;
+    // Stores sensor state
+    bool move = false;
+    // Correction for positioning from wall
     int correction = 0;
 
+    // Speed value, so that we can slow down as we approach 
+    // target value
     uint16_t speed = max_speed;
 
+    // How much to correct based on rotation
     int rotation_corr = 0;
 
+    // Target value when not using distance for targeting
     int alt_target = 0;
 
     if (until_flat) {
@@ -221,6 +245,8 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0, bool centering = true
                 // apply recentering
                 if (wall_reading < 200 && centering) {
                     correction = (wall_reading - wall_compare)*2;
+
+                    // Bound value, allows for limiting how much power is removed from wheels
                     if (correction > high_limit) {
                         correction = high_limit;
                     } else if (correction < low_limit) {
@@ -230,12 +256,15 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0, bool centering = true
                     correction = 0;
                 }
 
-                if (abs(dir_reading - target) < 100 && !until_flat) {
+                // Slow down if less than 100mm from target value, scaled depending on how close
+                // On the ramp and when moving towards an obstacle, we dont get closer, so ignore
+                if (abs(dir_reading - target) < 100 && !until_flat && !obstacle) {
                     speed = max_speed - ((100 - abs(dir_reading - target))*20);
                 } else {
                     speed = max_speed;
                 }
 
+                
                 if (fix_rotation) {
                     rotation_corr = deg_difference(get_rotation(), heading)*80;
                 }
@@ -247,8 +276,6 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0, bool centering = true
                     robot_move(for_dir, rotation_corr, correction, speed);
                 }
                 
-            } else {
-                //robot_move(RB_STOP);
             }
             
             delay(25);
@@ -274,12 +301,14 @@ void task_move(ROBOT_DIR dir, int squares, int offset = 0, bool centering = true
     
     // Stop robot
     robot_move(RB_STOP);
-
-    // Correct heading if gyro available
-    //correct_heading();
 }
 
+/**
+ * @brief Prepare for obstacle by raising arm, then move towards it
+ * 
+ */
 void task_obstacle() {
+    // Open claw, then lower arm
     claw_servo.write(180);
     claw_servo.attach(11, 750, 2250);
     claw_servo.write(180);
@@ -292,8 +321,10 @@ void task_obstacle() {
 
     delay(600);
 
+    // Move until obstacle detected
     task_move(RB_BACKWARD, 6, 0, false, true, false, true);
 
+    // Close claw, then raise arm again
     delay(300);
 
     claw_servo.write(0);
@@ -304,6 +335,7 @@ void task_obstacle() {
 
     delay(300);
 
+    // Rotate so that we are facing forwards
     task_rotate(RB_TURN_CC, 180);
 
 }
@@ -319,20 +351,25 @@ void task_rotate(ROBOT_DIR dir, double deg) {
 #ifdef USE_GYRO
     double output = get_rotation();
 
+    // Use global heading so we dont accumulate error
     if (dir == RB_TURN_CW) {
         heading = add_degrees(heading, deg);
     } else if (dir == RB_TURN_CC) {
         heading = add_degrees(heading, -deg);
     }
 
+    // speed so we can slow as we approach target
     int speed = max_speed;
+    // Difference from where we are to where we are targeting
     double deg_diff = deg_difference(output, heading);
 
     while (abs(deg_diff) > 1) {
+        // Slow down as we approach target, based on proximity
         if (abs(deg_diff) < 20) {
             speed = max_speed/2 - ((20-abs(deg_diff))*84);
         }
 
+        // Rotate towards target
         if (deg_diff < 0) {
             robot_rotation(RB_TURN_CC, speed);
         } else {
@@ -410,14 +447,10 @@ void task_ramp(bool reverse = false) {
     } 
 
     if (!reverse) {
-        //task_rotate(RB_TURN_CW, 45);
-
+        // Lower arm to dump off side
         claw_servo.attach(11, 750, 2250);
         
-
         claw_servo.write(90);
-
-        // delay(500);
 
         arm_servo.write(140);
         arm_servo.attach(12);
@@ -432,9 +465,11 @@ void task_ramp(bool reverse = false) {
         arm_servo.detach();
         claw_servo.detach();
 
+        // Rotate to go down ramp
         task_rotate(RB_TURN_CC, 45);       
     }
 
+    // Begin moving then lower arm, then move towards far wall
     robot_move(RB_FORWARD);
     if (!reverse) {
         delay(300);
@@ -455,7 +490,8 @@ void task_ramp(bool reverse = false) {
 
     delay(300);
     
-
+    // same as above, but if going up the ramp, then we need to move backwards and limit the amount
+    // that we correct, otherwise we dont have the power since only two wheels end up driving
     if (reverse) {
         task_rotate(RB_TURN_CW, 90);
 
@@ -638,6 +674,7 @@ void navigate_maze() {
     
 }
 
+// Turn off all motors
 void robot_stop() {
     for (int i = 0; i < 4; ++i) {
         motorshield.getMotor(i)->run(RELEASE);
@@ -663,51 +700,28 @@ void setup_movement() {
 
     heading = get_rotation();
     flat_inclination = get_inclination();
-    // Serial.println();
-
-    // arm_servo.write(180);
-    // arm_servo.attach(12);
-
-    // claw_servo.write(180);
-    // claw_servo.attach(11, 750, 2250);
-    // claw_servo.write(180);
-    // delay(2000);
-    // arm_servo.write(10);
-
-    // delay(1000);
-
-    // claw_servo.write(0);
-
-    // delay(1000);
-    // arm_servo.write(180);
-    // delay(1000);
-
-    
-
-    
-
-    // while(true);
 
 }
 
 
 /**
- * @brief               Low level movement commands, allows for the motors to be rearranged
- *                      and all movement to be updated
+ * @brief                       Low level movement commands, allows for the motors to be rearranged
+ *                              and all movement to be updated
  *
- * @param direction     Direction to move the robot
- * @param speed         Speeed to spin the motors at 0-4095
- * @param acceleration  Currently unused, how fast to increase speed of motors
+ * @param direction             Direction to move the robot
+ * @param heading_correction    How much correction is needed for rotation
+ * @param placement_correction  How much correction is needed for location towards wall
+ * @param speed                 Speeed to spin the motors at 0-4095
+ * 
+ * @details                     Each motor has a defined forward and backward direction which can be configured
+ *                              so that the wheels can be reliably turned in the correct direction
  *
- * @details             Each motor has a defined forward and backward direction which can be configured
- *                      so that the wheels can be reliably turned in the correct direction
+ *                              Each mechanum wheel creates a vector, by summing these vectors, the overall
+ *                              movement of the robot can be determined.
  *
- *                      Each mechanum wheel creates a vector, by summing these vectors, the overall
- *                      movement of the robot can be determined.
- *
- *                      When all wheels are moving forward, the horizontal component is zero,
- *                      When each side is moving opposite eachother (ie, each side has one forward rotating and one backwards)
- *                      then the robot can strafe
+ *                              When all wheels are moving forward, the horizontal component is zero,
+ *                              When each side is moving opposite eachother (ie, each side has one forward rotating and one backwards)
+ *                              then the robot can strafe
  */
 void robot_move(ROBOT_DIR direction, double heading_correction, int16_t placement_correction, uint16_t speed) {
 
@@ -718,6 +732,10 @@ void robot_move(ROBOT_DIR direction, double heading_correction, int16_t placemen
     double xc = 0;
     double yc = 0;
 
+    // Setup heading correction, instead of removing
+    // from one side and adding to the other, remove
+    // twice as much from the one side. This is to make sure
+    // we dont go over the max_speed
     double head_corr[4] = {0,0,0,0};
 
     for (int i = 0; i < 4; ++i) {
@@ -727,6 +745,7 @@ void robot_move(ROBOT_DIR direction, double heading_correction, int16_t placemen
         }
     }
 
+    // Setup direction and change heading_corr as needed
     if (direction == RB_FORWARD) {
         motorshield.getMotor(MOTOR_FL)->run(MOTOR_FL_FORWARD);
         motorshield.getMotor(MOTOR_RR)->run(MOTOR_RR_FORWARD);
@@ -810,10 +829,12 @@ void robot_move(ROBOT_DIR direction, double heading_correction, int16_t placemen
         speed_neg = speed;
     }
 
-    
+    // Only apply correction to one wheel,
+    // more predictable rotation
     head_corr[MOTOR_FL-1] = 0;
     head_corr[MOTOR_RR-1] = 0;
 
+    // Only apply correction when removing speed
     for (int i = 0; i < 4; ++i) {
         if (head_corr[i] > 0) {
             head_corr[i] = 0;
